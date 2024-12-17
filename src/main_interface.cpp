@@ -1,0 +1,172 @@
+#include "main_interface.h"
+
+#include <iostream>
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+#include <imgui.h>
+
+bool Interface::setupWindow() {
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+
+    window = glfwCreateWindow(mode->width, mode->height, "GausStudio", nullptr, nullptr);
+    if (!window) {
+        glfwTerminate();
+        return false;
+    }
+    glfwMakeContextCurrent(window);
+    glfwSwapInterval(1);
+    return true;
+}
+
+bool Interface::initOpengl() {
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize GLEW" << std::endl;
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return false;
+    }
+
+    return true;
+}
+
+void Interface::setupImgui() {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 130");
+    ImGui::StyleColorsDark();
+}
+
+Interface::~Interface() {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+}
+
+void Interface::startMainLoop() {
+    while (!glfwWindowShouldClose(window)) {
+        // Start ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        createMenuBar();
+        createDockSpace();
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::SetNextWindowDockID(dockspace_id, ImGuiCond_FirstUseEver);
+        ImGui::Begin("Debug");
+        // Create main tabs
+        if(ImGui::BeginMenu("Tabs")) {
+            if (ImGui::BeginTabBar("Main Tabs")) {
+                // Camera Point View Tab
+                if (ImGui::BeginTabItem("Camera Point View")) {
+                    static float position[3] = {0.0f, 0.0f, 0.0f};
+                    static float distance = 5.0f;
+                    static float farPlane = 100.0f;
+                    static int keyCameras = 0;
+                    static float rotationSpeed = 1.0f;
+                    static float acceleration = 0.3f;
+
+                    ImGui::Text("Camera Position:");
+                    ImGui::InputFloat3("Position", position);
+                    ImGui::InputFloat("Distance", &distance);
+                    ImGui::InputFloat("Far", &farPlane);
+                    ImGui::InputInt("Key Cameras", &keyCameras);
+                    ImGui::InputFloat("Rotation Speed", &rotationSpeed);
+                    ImGui::InputFloat("Acceleration", &acceleration);
+                    ImGui::EndTabItem();
+                }
+
+                // Metrics Tab
+                if (ImGui::BeginTabItem("Metrics")) {
+                    ImGui::Text("Frame Time: %.3f ms", 16.68f);
+                    ImGui::Text("FPS: %.2f", 59.94f);
+                    ImGui::EndTabItem();
+                }
+
+                // 3D Gaussian Tab
+                if (ImGui::BeginTabItem("3D Gaussian")) {
+                    static float splatSize = 1.0f;
+                    static bool fastCulling = true;
+                    static float scalingModifier = 1.0f;
+
+                    ImGui::InputFloat("Splat Size", &splatSize);
+                    ImGui::Checkbox("Fast Culling", &fastCulling);
+                    ImGui::InputFloat("Scaling Modifier", &scalingModifier);
+
+                    // Render the placeholder texture
+                    ImVec2 viewportSize(128, 128);
+                    //ImGui::Image((ImTextureID)(uintptr_t)texture, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
+                    ImGui::EndTabItem();
+                }
+
+                ImGui::EndTabBar();
+            }
+            ImGui::EndMenu();
+        }
+
+        ImGui::End();
+
+
+        // Render Gaussian points
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        //renderGaussianSplatting(points);
+
+        // Render ImGui
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        // Swap buffers
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+}
+
+void Interface::createMenuBar() {
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Open PLY file"))
+                std::cout << "Not opening heheh" << std::endl;
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+}
+
+void Interface::createDockSpace() {
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(viewport->WorkPos);
+    ImGui::SetNextWindowSize(viewport->WorkSize);
+    ImGui::SetNextWindowViewport(viewport->ID);
+    window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+    if (ImGui::Begin("DockSpace Window", nullptr, window_flags)) {
+        ImGui::PopStyleVar(2);
+
+        // Define the dock space
+        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+        ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+    }
+    ImGui::End();
+}
