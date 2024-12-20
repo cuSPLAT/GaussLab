@@ -50,6 +50,14 @@ void Interface::setupImgui() {
     ImGui::StyleColorsDark();
 }
 
+void Interface::createViewWindow() {
+    if (ImGui::Begin("View")) {
+
+
+        ImGui::End();
+    }
+}
+
 Interface::~Interface() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -69,9 +77,16 @@ void Interface::startMainLoop() {
         createDockSpace();
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
         ImGui::SetNextWindowDockID(dockspace_id, ImGuiCond_FirstUseEver);
-        ImGui::Begin("Debug");
+
+        createViewWindow();
+
+        if (ImGui::Begin("Debug")) {
+            ImGui::LabelText("label", "Value");
+            ImGui::End();
+        }
+
         // Create main tabs
-        if(ImGui::BeginMenu("Tabs")) {
+        if(ImGui::Begin("Tabs")) {
             if (ImGui::BeginTabBar("Main Tabs")) {
                 // Camera Point View Tab
                 if (ImGui::BeginTabItem("Camera Point View")) {
@@ -117,11 +132,8 @@ void Interface::startMainLoop() {
 
                 ImGui::EndTabBar();
             }
-            ImGui::EndMenu();
+            ImGui::End();
         }
-
-        ImGui::End();
-
 
         // Render Gaussian points
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

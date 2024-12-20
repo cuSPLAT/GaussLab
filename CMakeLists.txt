@@ -18,6 +18,8 @@ include_directories(SYSTEM "src/")
 add_executable(
    GausStudio
    "src/main.cpp"
+   "src/renderer.cpp"
+   "src/shaders.cpp"
    "src/main_interface.cpp"
    "external/glad/src/glad.c"
    "external/imgui/imgui.cpp"
