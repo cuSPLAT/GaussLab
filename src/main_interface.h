@@ -15,6 +15,7 @@ public:
     void startMainLoop();
 
     void createMenuBar();
+    void createViewWindow();
     void createDockSpace();
 
 };
