@@ -9,6 +9,8 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui.h>
 
+Interface::Interface() = default;
+
 bool Interface::setupWindow() {
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
@@ -23,6 +25,9 @@ bool Interface::setupWindow() {
         glfwTerminate();
         return false;
     }
+    width = mode->width;
+    height = mode->height;
+
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
     return true;
@@ -50,10 +55,16 @@ void Interface::setupImgui() {
     ImGui::StyleColorsDark();
 }
 
+void Interface::setupRenderer() {
+    renderer = new Renderer(width, height);
+    renderer->initializeRendererBuffer();
+    renderer->generateInitialBuffers();
+}
+
 void Interface::createViewWindow() {
     if (ImGui::Begin("View")) {
-
-
+        ImVec2 viewSize = ImGui::GetWindowSize();
+        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize);
         ImGui::End();
     }
 }
@@ -64,6 +75,8 @@ Interface::~Interface() {
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
+
+    delete renderer;
 }
 
 void Interface::startMainLoop() {
@@ -142,6 +155,8 @@ void Interface::startMainLoop() {
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        renderer->render();
 
         // Swap buffers
         glfwSwapBuffers(window);

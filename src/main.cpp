@@ -32,6 +32,7 @@ int main() {
     interface.setupWindow();
     interface.initOpengl();
     interface.setupImgui();
+    interface.setupRenderer();
     interface.startMainLoop();
 
     // Sample Gaussian points

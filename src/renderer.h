@@ -5,9 +5,16 @@ class Renderer {
     GLuint frameBuffer;
     GLuint shaderProgram;
 
+    GLuint rendererBuffer;
+
+    unsigned int width, height;
+
 public:
-    Renderer();
+    Renderer(int width, int height);
     void generateInitialBuffers();
+    void initializeRendererBuffer();
+
+    GLuint getRenderBuffer();
 
     void render();
 };
