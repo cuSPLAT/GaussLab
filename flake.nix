@@ -14,6 +14,8 @@
                         glfw3
                         glm
                         clang-tools
+
+                        zlib
                     ];
                 };
             }

@@ -1,14 +1,12 @@
 #include <iostream>
 #include <vector>
 #include <glad/glad.h>
-#include <GLFW/glfw3native.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
 #include "main_interface.h"
-
 // Define Gaussian
 struct GaussianPoint {
     float x, y, z;       // Position
@@ -32,6 +30,7 @@ int main() {
     interface.setupWindow();
     interface.initOpengl();
     interface.setupImgui();
+    interface.setupRenderer();
     interface.startMainLoop();
 
     // Sample Gaussian points

@@ -6,12 +6,16 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
+# for assimp
+set(BUILD_SHARED_LIBS OFF)
+
 find_package(OpenGL REQUIRED)
 find_package(glfw3 3.4 REQUIRED)
 find_package(glm REQUIRED)
 
 include_directories(SYSTEM "external/glad/include")
 include_directories(SYSTEM "external/imgui")
+include_directories(SYSTEM "external/happly")
 include_directories(SYSTEM "external/imgui/backends")
 include_directories(SYSTEM "src/")
 
@@ -20,7 +24,9 @@ add_executable(
    "src/main.cpp"
    "src/renderer.cpp"
    "src/shaders.cpp"
+   "src/camera.cpp"
    "src/main_interface.cpp"
+   "src/scene_loader.cpp"
    "external/glad/src/glad.c"
    "external/imgui/imgui.cpp"
    "external/imgui/imgui_draw.cpp"
@@ -30,6 +36,7 @@ add_executable(
    "external/imgui/backends/imgui_impl_glfw.cpp"
    "external/imgui/backends/imgui_impl_opengl3.cpp"
 )
+
 target_link_libraries(
     GausStudio
     OpenGL::GL
