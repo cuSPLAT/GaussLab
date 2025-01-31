@@ -1,6 +1,8 @@
 #include "renderer.h"
 #include "shaders.h"
-#include <GL/gl.h>
+#include "camera.h"
+
+#include <iostream>
 
 Renderer::Renderer(int width, int height): width(width), height(height) {}
 
@@ -11,7 +13,7 @@ void Renderer::initializeRendererBuffer() {
     glGenTextures(1, &rendererBuffer);
     glBindTexture(GL_TEXTURE_2D, rendererBuffer);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_RG8, width, height, 0,
+        GL_TEXTURE_2D, 0, GL_RGB, width, height, 0,
         GL_RGB, GL_UNSIGNED_BYTE, nullptr
     );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -32,25 +34,8 @@ GLuint Renderer::getRenderBuffer() {
 }
 
 void Renderer::generateInitialBuffers() {
-    // dummy vertices for now
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-        0.5f, -0.5f, 0.0f,
-        0.0f,  0.5f, 0.0f
-    };
-
-    // if we suddenly have manu VBOs move the generation to another method
-    glGenBuffers(1, &VBO);
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
-    
-    // we will only bind the VBO during initialization, after that we will
-    // only bind the VAO
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
     
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &Shaders::vertexShader, nullptr);
@@ -59,6 +44,16 @@ void Renderer::generateInitialBuffers() {
     GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &Shaders::fragmentShader, nullptr);
     glCompileShader(fragmentShader);
+    
+    //TODO: move this to a macro or inline function
+    int  success;
+    char infoLog[512];
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if(!success)
+    {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+    }
 
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
@@ -72,13 +67,43 @@ void Renderer::generateInitialBuffers() {
     glUseProgram(shaderProgram);
 }
 
-void Renderer::render() {
-    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+void Renderer::constructScene(Scene* scene) {
+    size_t vertices_count = scene->vertexPos.size();
+    size_t color_count = scene->vertexColor.size();
 
+    camera.registerView(shaderProgram);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices_count * sizeof(float), scene->vertexPos.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    GLuint colorBuffer;
+    glGenBuffers(1, &colorBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+    glBufferData(GL_ARRAY_BUFFER, color_count * sizeof(float), scene->vertexColor.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+
+}
+
+Camera* Renderer::getCamera() {
+    return &camera;
+}
+
+void Renderer::render(GLFWwindow* window) {
+    camera.registerView(shaderProgram);
+    camera.handleInput(window);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT);
     // drawing into the small window happens here
     // we only have one VAO and one shader that are always binded so
     // no need to always rebind them
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    camera.updateView();
+    glDrawArrays(GL_POINTS, 0, 140000);
+
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

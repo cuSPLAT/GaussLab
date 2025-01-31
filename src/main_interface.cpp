@@ -1,4 +1,5 @@
 #include "main_interface.h"
+#include "scene_loader.h"
 
 #include <iostream>
 
@@ -59,6 +60,10 @@ void Interface::setupRenderer() {
     renderer = new Renderer(width, height);
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
+
+    Scene* pcd = PLYLoader::loadPLy("/home/abdelrahman/projects/OpenSplat/build/splat.ply");
+    renderer->constructScene(pcd);
+    free(pcd);
 }
 
 void Interface::createViewWindow() {
@@ -103,12 +108,17 @@ void Interface::startMainLoop() {
             if (ImGui::BeginTabBar("Main Tabs")) {
                 // Camera Point View Tab
                 if (ImGui::BeginTabItem("Camera Point View")) {
-                    static float position[3] = {0.0f, 0.0f, 0.0f};
+                    
                     static float distance = 5.0f;
                     static float farPlane = 100.0f;
                     static int keyCameras = 0;
                     static float rotationSpeed = 1.0f;
                     static float acceleration = 0.3f;
+
+                    static float* viewMat = renderer->getCamera()->getVectorPtr();
+                    renderer->getCamera()->getPositionFromShader(renderer->shaderProgram);
+                    float position[3] = {viewMat[12], viewMat[13], viewMat[14]};
+
 
                     ImGui::Text("Camera Position:");
                     ImGui::InputFloat3("Position", position);
@@ -139,7 +149,6 @@ void Interface::startMainLoop() {
 
                     // Render the placeholder texture
                     ImVec2 viewportSize(128, 128);
-                    //ImGui::Image((ImTextureID)(uintptr_t)texture, viewportSize, ImVec2(0, 1), ImVec2(1, 0));
                     ImGui::EndTabItem();
                 }
 
@@ -149,14 +158,14 @@ void Interface::startMainLoop() {
         }
 
         // Render Gaussian points
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         //renderGaussianSplatting(points);
 
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        renderer->render();
+        renderer->render(window);
 
         // Swap buffers
         glfwSwapBuffers(window);
