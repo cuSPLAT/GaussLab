@@ -1,10 +1,14 @@
 #include "main_interface.h"
+#include "nfd.h"
 #include "scene_loader.h"
 
 #include <iostream>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+
+#include <nfd.hpp>
+#include <nfd_glfw3.h>
 
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -28,6 +32,13 @@ bool Interface::setupWindow() {
     }
     width = mode->width;
     height = mode->height;
+
+    // For file dialogs
+    if(NFD_Init() != NFD_OKAY) {
+        std::cerr << "Could not initialize NFD for file dialogs" << std::endl;
+    }
+    args = {0};
+    NFD_GetNativeWindowFromGLFWWindow(window, &args.parentWindow);
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -56,6 +67,21 @@ void Interface::setupImgui() {
     ImGui::StyleColorsDark();
 }
 
+std::string Interface::openFileDialog() {
+    nfdu8char_t* plyPath;
+    
+    nfdu8filteritem_t filters[1] = { { "PLY File", "ply" } };
+    args.filterList = filters;
+    args.filterCount = 1;
+
+    nfdresult_t result = NFD_OpenDialogU8_With(&plyPath, &args);
+
+    std::string path(plyPath);
+    NFD_FreePathU8(plyPath);
+
+    return path;
+}
+
 void Interface::setupRenderer() {
     renderer = new Renderer(width, height);
     renderer->initializeRendererBuffer();
@@ -63,7 +89,7 @@ void Interface::setupRenderer() {
 
     Scene* pcd = PLYLoader::loadPLy("/home/abdelrahman/projects/OpenSplat/build/splat.ply");
     renderer->constructScene(pcd);
-    free(pcd);
+    delete pcd;
 }
 
 void Interface::createViewWindow() {
@@ -78,6 +104,9 @@ Interface::~Interface() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
+
+    NFD_Quit();
+
     glfwDestroyWindow(window);
     glfwTerminate();
 
@@ -157,10 +186,6 @@ void Interface::startMainLoop() {
             ImGui::End();
         }
 
-        // Render Gaussian points
-        //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        //renderGaussianSplatting(points);
-
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -176,8 +201,13 @@ void Interface::startMainLoop() {
 void Interface::createMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("Open PLY file"))
-                std::cout << "Not opening heheh" << std::endl;
+            if (ImGui::MenuItem("Open PLY file")) {
+                std::string path = openFileDialog();
+
+                Scene* pcd = PLYLoader::loadPLy(path);
+                renderer->constructScene(pcd);
+                delete pcd;
+            }
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();

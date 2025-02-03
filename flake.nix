@@ -16,6 +16,8 @@
                         clang-tools
 
                         zlib
+                        pkg-config
+                        gtk3
                     ];
                 };
             }

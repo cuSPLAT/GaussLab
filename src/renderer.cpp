@@ -2,6 +2,8 @@
 #include "shaders.h"
 #include "camera.h"
 
+#include <GL/gl.h>
+#include <GL/glext.h>
 #include <iostream>
 
 Renderer::Renderer(int width, int height): width(width), height(height) {}
@@ -36,6 +38,8 @@ GLuint Renderer::getRenderBuffer() {
 void Renderer::generateInitialBuffers() {
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &colorBuffer);
     
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &Shaders::vertexShader, nullptr);
@@ -65,6 +69,7 @@ void Renderer::generateInitialBuffers() {
 
     // should be moved to another function if we have multiple shaders
     glUseProgram(shaderProgram);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 }
 
 void Renderer::constructScene(Scene* scene) {
@@ -72,14 +77,11 @@ void Renderer::constructScene(Scene* scene) {
     size_t color_count = scene->vertexColor.size();
 
     camera.registerView(shaderProgram);
-    glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices_count * sizeof(float), scene->vertexPos.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    GLuint colorBuffer;
-    glGenBuffers(1, &colorBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
     glBufferData(GL_ARRAY_BUFFER, color_count * sizeof(float), scene->vertexColor.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);

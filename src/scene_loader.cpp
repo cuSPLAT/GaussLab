@@ -25,7 +25,7 @@ Scene* PLYLoader::loadPLy(const std::string &filename) {
 
         //TODO: Understand the current coordinate system ? 
         // why the hell Z has values larger than 1 ?
-        vertexPos[i + 2] = z[i / 3] - 1; 
+        vertexPos[i + 2] = -1 * (z[i / 3] - 1); 
     }
 
 

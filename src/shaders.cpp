@@ -11,6 +11,7 @@ const char* Shaders::vertexShader = "#version 330 core\n"
     "uniform mat4 view;\n"
     "void main() {\n"
     "gl_Position = view * vec4(aPos, 1.0);\n"
+    "gl_PointSize = 1.5f;\n"
     "vertexColor = vec4(inColor * 0.282 + 0.5, 1.0);"
     "}\0";
 

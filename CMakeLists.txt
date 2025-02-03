@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
+add_subdirectory(external/nativefiledialog)
+
 # for assimp
 set(BUILD_SHARED_LIBS OFF)
 
@@ -16,6 +18,7 @@ find_package(glm REQUIRED)
 include_directories(SYSTEM "external/glad/include")
 include_directories(SYSTEM "external/imgui")
 include_directories(SYSTEM "external/happly")
+include_directories(SYSTEM "external/nativefiledialog/src/include")
 include_directories(SYSTEM "external/imgui/backends")
 include_directories(SYSTEM "src/")
 
@@ -42,4 +45,6 @@ target_link_libraries(
     OpenGL::GL
     glfw
     glm::glm
+
+    nfd
 )

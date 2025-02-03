@@ -16,6 +16,7 @@ struct Scene {
 
 class Renderer {
     GLuint VBO, VAO;
+    GLuint colorBuffer;
     GLuint frameBuffer;
     GLuint rendererBuffer;
 

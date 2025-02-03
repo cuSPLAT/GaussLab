@@ -17,7 +17,7 @@ Camera::Camera() {
 }
 
 Camera::~Camera() {
-    free(posVector);
+    delete posVector;
 }
 
 void Camera::registerView(GLuint shaderId) {
