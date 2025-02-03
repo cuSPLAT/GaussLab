@@ -96,8 +96,8 @@ void Interface::createViewWindow() {
     if (ImGui::Begin("View")) {
         ImVec2 viewSize = ImGui::GetWindowSize();
         ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize);
-        ImGui::End();
     }
+    ImGui::End();
 }
 
 Interface::~Interface() {
@@ -129,8 +129,8 @@ void Interface::startMainLoop() {
 
         if (ImGui::Begin("Debug")) {
             ImGui::LabelText("label", "Value");
-            ImGui::End();
         }
+        ImGui::End();
 
         // Create main tabs
         if(ImGui::Begin("Tabs")) {
@@ -181,10 +181,10 @@ void Interface::startMainLoop() {
                     ImGui::EndTabItem();
                 }
 
-                ImGui::EndTabBar();
             }
-            ImGui::End();
+            ImGui::EndTabBar();
         }
+        ImGui::End();
 
         // Render ImGui
         ImGui::Render();
@@ -202,6 +202,7 @@ void Interface::createMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open PLY file")) {
+                //TODO: error checking
                 std::string path = openFileDialog();
 
                 Scene* pcd = PLYLoader::loadPLy(path);
