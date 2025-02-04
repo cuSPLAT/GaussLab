@@ -6,7 +6,7 @@
 #include <GL/glext.h>
 #include <iostream>
 
-Renderer::Renderer(int width, int height): width(width), height(height) {}
+Renderer::Renderer(int width, int height): width(width), height(height), camera(width, height) {}
 
 void Renderer::initializeRendererBuffer() {
     glGenFramebuffers(1, &frameBuffer);
@@ -73,12 +73,13 @@ void Renderer::generateInitialBuffers() {
 }
 
 void Renderer::constructScene(Scene* scene) {
-    size_t vertices_count = scene->vertexPos.size();
+    size_t verticesPosCount = scene->vertexPos.size();
     size_t color_count = scene->vertexColor.size();
+    verticesCount = verticesPosCount / 3;
 
     camera.registerView(shaderProgram);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices_count * sizeof(float), scene->vertexPos.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, verticesPosCount * sizeof(float), scene->vertexPos.data(), GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
@@ -102,9 +103,9 @@ void Renderer::render(GLFWwindow* window) {
     glClear(GL_COLOR_BUFFER_BIT);
     // drawing into the small window happens here
     // we only have one VAO and one shader that are always binded so
-    // no need to always rebind them
+    // no need to rebind them on every draw call
     camera.updateView();
-    glDrawArrays(GL_POINTS, 0, 140000);
+    glDrawArrays(GL_POINTS, 0, verticesCount);
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

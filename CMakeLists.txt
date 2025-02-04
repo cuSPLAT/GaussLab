@@ -20,7 +20,6 @@ include_directories(SYSTEM "external/imgui")
 include_directories(SYSTEM "external/happly")
 include_directories(SYSTEM "external/nativefiledialog/src/include")
 include_directories(SYSTEM "external/imgui/backends")
-include_directories(SYSTEM "src/")
 
 add_executable(
    GausStudio
@@ -30,6 +29,7 @@ add_executable(
    "src/camera.cpp"
    "src/main_interface.cpp"
    "src/scene_loader.cpp"
+   "src/callbacks.cpp"
    "external/glad/src/glad.c"
    "external/imgui/imgui.cpp"
    "external/imgui/imgui_draw.cpp"

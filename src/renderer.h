@@ -20,9 +20,13 @@ class Renderer {
     GLuint frameBuffer;
     GLuint rendererBuffer;
 
+
     Camera camera;
 
     unsigned int width, height;
+// for public variables, to make the code cleaner
+public:
+     unsigned int verticesCount;
 
 public:
     Renderer(int width, int height);
@@ -33,7 +37,6 @@ public:
     GLuint shaderProgram;
 
     void constructScene(Scene* scene);
-
     GLuint getRenderBuffer();
 
     Camera* getCamera();

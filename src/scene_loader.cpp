@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <happly.h>
 
 #include <string>
@@ -6,7 +7,7 @@
 
 // All of implementation can be changed to a different ply backend
 Scene* PLYLoader::loadPLy(const std::string &filename) {
-    happly::PLYData scene(filename);
+    happly::PLYData scene(filename, true);
     happly::Element& points = scene.getElement("vertex");
 
     std::vector<float> x = points.getProperty<float>("x");
@@ -16,6 +17,12 @@ Scene* PLYLoader::loadPLy(const std::string &filename) {
     std::vector<float> r = points.getProperty<float>("f_dc_0");
     std::vector<float> g = points.getProperty<float>("f_dc_1");
     std::vector<float> b = points.getProperty<float>("f_dc_2");
+    
+    // OpenGL's default camera looks toward the negative z axis so if
+    // we have a positive system we reverse it
+    int8_t modifier = 1;
+    if (z[0] > 0)
+       modifier = -1;
 
     std::vector<float> vertexPos;
     vertexPos.resize(x.size() * 3);
@@ -25,7 +32,7 @@ Scene* PLYLoader::loadPLy(const std::string &filename) {
 
         //TODO: Understand the current coordinate system ? 
         // why the hell Z has values larger than 1 ?
-        vertexPos[i + 2] = -1 * (z[i / 3] - 1); 
+        vertexPos[i + 2] = modifier * (z[i / 3] - 1); 
     }
 
 

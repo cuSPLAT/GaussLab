@@ -1,6 +1,7 @@
 #include "main_interface.h"
 #include "nfd.h"
 #include "scene_loader.h"
+#include "callbacks.h"
 
 #include <iostream>
 
@@ -42,6 +43,14 @@ bool Interface::setupWindow() {
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
+
+    renderer = new Renderer(width, height);
+    // so we can access the renderer from the callbacks
+    glfwSetWindowUserPointer(window, renderer);
+
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPosCallback(window, Callbacks::mouse_callback);
+
     return true;
 }
 
@@ -83,7 +92,6 @@ std::string Interface::openFileDialog() {
 }
 
 void Interface::setupRenderer() {
-    renderer = new Renderer(width, height);
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
 
@@ -95,7 +103,7 @@ void Interface::setupRenderer() {
 void Interface::createViewWindow() {
     if (ImGui::Begin("View")) {
         ImVec2 viewSize = ImGui::GetWindowSize();
-        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize);
+        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize, ImVec2(0, 1), ImVec2(1, 0));
     }
     ImGui::End();
 }
@@ -114,6 +122,8 @@ Interface::~Interface() {
 }
 
 void Interface::startMainLoop() {
+    static int primtiveStepCount = 1000;
+
     while (!glfwWindowShouldClose(window)) {
         // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -128,7 +138,7 @@ void Interface::startMainLoop() {
         createViewWindow();
 
         if (ImGui::Begin("Debug")) {
-            ImGui::LabelText("label", "Value");
+            ImGui::InputScalar("Primitive Count", ImGuiDataType_U32, &renderer->verticesCount, &primtiveStepCount);
         }
         ImGui::End();
 
