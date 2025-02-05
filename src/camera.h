@@ -1,6 +1,8 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#define GLFW_INCLUDE_NONE
+
 #include <glm/glm.hpp>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -28,7 +30,7 @@ public:
     void handleInput(GLFWwindow* window);
 
     void getPositionFromShader(GLuint shaderId);
-    void calculateDirection(double xpos, double ypos);
+    void calculateDirection(GLFWwindow* window, double xpos, double ypos);
     void calculateZoom(double yoffset);
 
     GLfloat* getVectorPtr();

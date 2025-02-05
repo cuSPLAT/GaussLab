@@ -7,7 +7,7 @@
 
 void Callbacks::mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
-    renderer->getCamera()->calculateDirection(xpos, ypos);
+    renderer->getCamera()->calculateDirection(window, xpos, ypos);
 }
 
 void Callbacks::scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {

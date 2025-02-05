@@ -4,14 +4,10 @@
 #include <glm/fwd.hpp>
 #include <glm/geometric.hpp>
 #include <glm/trigonometric.hpp>
-#define GLFW_INCLUDE_NONE
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <GLFW/glfw3.h>
-
-#include "renderer.h"
 #include "camera.h"
 
 Camera::Camera(int width, int height): width(width), height(height) {
@@ -68,10 +64,13 @@ GLfloat* Camera::getVectorPtr() {
     return posVector;
 }
 
-void Camera::calculateDirection(double xpos, double ypos) {
+void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
     static float lastX = xpos, lastY = ypos;
     static float xoffset = xpos - lastX;
     static float yoffset = lastY - ypos;
+
+    static float localYaw = yaw;
+    static float localPitch = pitch;
     
     xoffset = xpos - lastX;
     yoffset = lastY - ypos;
@@ -89,10 +88,14 @@ void Camera::calculateDirection(double xpos, double ypos) {
     if(pitch < -89.0f)
         pitch = -89.0f;
 
-    if (!scene) {
+    if (!scene && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        //TODO: there is still an axis missing
+        localYaw += xoffset;
+        localPitch += yoffset;
+
         glm::mat4 translateToOrigin = glm::translate(glm::mat4(1.0f), sceneCentroid);
-        glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(pitch), glm::vec3(1.0f, 0.0f, 0.0f));
-        glm::mat4 yRot = glm::rotate(xRot, glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(localPitch), glm::vec3(1.0f, 0.0f, 0.0f));
+        glm::mat4 yRot = glm::rotate(xRot, glm::radians(localYaw), glm::vec3(0.0f, -1.0f, 0.0f));
         view = glm::translate(yRot, -1.0f * sceneCentroid);
 
         return;
