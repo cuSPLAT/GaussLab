@@ -76,6 +76,7 @@ void Renderer::constructScene(Scene* scene) {
     size_t verticesPosCount = scene->vertexPos.size();
     size_t color_count = scene->vertexColor.size();
     verticesCount = verticesPosCount / 3;
+    camera.setCentroid(scene->centroid);
 
     camera.registerView(shaderProgram);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);

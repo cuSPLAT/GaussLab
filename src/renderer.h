@@ -12,6 +12,7 @@
 struct Scene {
     std::vector<float> vertexPos;
     std::vector<float> vertexColor;
+    glm::vec3 centroid;
 };
 
 class Renderer {

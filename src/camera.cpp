@@ -1,4 +1,9 @@
 #include <cmath>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_geometric.hpp>
+#include <glm/fwd.hpp>
+#include <glm/geometric.hpp>
+#include <glm/trigonometric.hpp>
 #define GLFW_INCLUDE_NONE
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -33,9 +38,12 @@ void Camera::registerView(GLuint shaderId) {
     GLuint matrixLocation = glGetUniformLocation(shaderId, "view");
     glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(view));
 
-    // This does not have to be called every frame btw
-    matrixLocation = glGetUniformLocation(shaderId, "projection");
-    glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
+    static bool first = true;
+    if (!scene || first) {
+        matrixLocation = glGetUniformLocation(shaderId, "projection");
+        glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
+        first = false;
+    }
 }
 
 void Camera::getPositionFromShader(GLuint shaderId) {
@@ -44,9 +52,16 @@ void Camera::getPositionFromShader(GLuint shaderId) {
 }
 
 void Camera::updateView() {
+    if (!scene)
+        return;
+
     view = glm::lookAt(
         cameraPos, cameraPos + cameraTarget, cameraUp
     );
+}
+
+void Camera::setCentroid(const glm::vec3& centroid) {
+    sceneCentroid = centroid;
 }
 
 GLfloat* Camera::getVectorPtr() {
@@ -74,10 +89,31 @@ void Camera::calculateDirection(double xpos, double ypos) {
     if(pitch < -89.0f)
         pitch = -89.0f;
 
+    if (!scene) {
+        glm::mat4 translateToOrigin = glm::translate(glm::mat4(1.0f), sceneCentroid);
+        glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+        glm::mat4 yRot = glm::rotate(xRot, glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        view = glm::translate(yRot, -1.0f * sceneCentroid);
+
+        return;
+    }
+
     direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction.y = sin(glm::radians(pitch));
+    direction.y = -1 * (sin(glm::radians(pitch)));
     direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
     cameraTarget = glm::normalize(direction);
+}
+
+void Camera::calculateZoom(double yoffset) {
+    static float fov = 45.0f;
+
+    fov -= (float)yoffset;
+    if (fov < 1.0f)
+        fov = 1.0f;
+    if (fov > 89.0f)
+        fov = 89.0f; 
+    
+    projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
 }
 
 void Camera::handleInput(GLFWwindow* window) {

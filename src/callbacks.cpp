@@ -10,4 +10,9 @@ void Callbacks::mouse_callback(GLFWwindow *window, double xpos, double ypos) {
     renderer->getCamera()->calculateDirection(xpos, ypos);
 }
 
+void Callbacks::scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {
+    Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
+    renderer->getCamera()->calculateZoom(yoffset);
+
+}
 

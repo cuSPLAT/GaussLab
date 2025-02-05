@@ -50,6 +50,7 @@ bool Interface::setupWindow() {
 
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, Callbacks::mouse_callback);
+    glfwSetScrollCallback(window, Callbacks::scroll_callback);
 
     return true;
 }
@@ -103,7 +104,7 @@ void Interface::setupRenderer() {
 void Interface::createViewWindow() {
     if (ImGui::Begin("View")) {
         ImVec2 viewSize = ImGui::GetWindowSize();
-        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize, ImVec2(0, 1), ImVec2(1, 0));
+        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize);
     }
     ImGui::End();
 }
@@ -154,6 +155,8 @@ void Interface::startMainLoop() {
                     static float rotationSpeed = 1.0f;
                     static float acceleration = 0.3f;
 
+                    static const char* items[] = {"Scene", "Object"};
+
                     static float* viewMat = renderer->getCamera()->getVectorPtr();
                     renderer->getCamera()->getPositionFromShader(renderer->shaderProgram);
                     float position[3] = {viewMat[12], viewMat[13], viewMat[14]};
@@ -161,6 +164,16 @@ void Interface::startMainLoop() {
 
                     ImGui::Text("Camera Position:");
                     ImGui::InputFloat3("Position", position);
+
+                    if (ImGui::BeginCombo("Mode of operation", "select")) {
+                        if (ImGui::Selectable("Scene"))
+                            renderer->getCamera()->scene = true;
+                        if (ImGui::Selectable("Object"))
+                            renderer->getCamera()->scene = false;
+                    
+                        ImGui::EndCombo();
+                    }
+
                     ImGui::InputFloat("Distance", &distance);
                     ImGui::InputFloat("Far", &farPlane);
                     ImGui::InputInt("Key Cameras", &keyCameras);

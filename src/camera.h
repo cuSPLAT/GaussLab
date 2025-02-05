@@ -11,10 +11,15 @@ class Camera {
     glm::vec3 cameraUp;
     glm::vec3 cameraTarget;
     glm::vec3 direction;
+    glm::vec3 sceneCentroid;
+
 
     float yaw, pitch;
     int width, height;
     GLfloat* posVector;
+
+public:
+    bool scene = true;
 
 public:
     Camera(int width, int height);
@@ -24,9 +29,11 @@ public:
 
     void getPositionFromShader(GLuint shaderId);
     void calculateDirection(double xpos, double ypos);
+    void calculateZoom(double yoffset);
 
     GLfloat* getVectorPtr();
     
+    void setCentroid(const glm::vec3& centroid);
     void updateView();
 };
 
