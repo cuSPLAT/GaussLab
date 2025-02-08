@@ -89,13 +89,12 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
         pitch = -89.0f;
 
     if (!scene && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        //TODO: there is still an axis missing
         localYaw += xoffset;
         localPitch += yoffset;
 
         glm::mat4 translateToOrigin = glm::translate(glm::mat4(1.0f), sceneCentroid);
-        glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(localPitch), glm::vec3(1.0f, 0.0f, 0.0f));
-        glm::mat4 yRot = glm::rotate(xRot, glm::radians(localYaw), glm::vec3(0.0f, -1.0f, 0.0f));
+        glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(localYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 yRot = glm::rotate(xRot, glm::radians(localPitch), glm::vec3(1.0f, 0.0f, 0.0f));
         view = glm::translate(yRot, -1.0f * sceneCentroid);
 
         return;
