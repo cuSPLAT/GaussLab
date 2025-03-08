@@ -8,3 +8,6 @@
 [submodule "external/nativefiledialog"]
 	path = external/nativefiledialog
 	url = git@github.com:btzy/nativefiledialog-extended.git
+[submodule "external/vega"]
+	path = external/vega
+	url = git@github.com:project-eutopia/vega.git

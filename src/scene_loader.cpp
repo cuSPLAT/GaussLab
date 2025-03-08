@@ -8,7 +8,7 @@
 
 // All of implementation can be changed to a different ply backend
 Scene* PLYLoader::loadPLy(const std::string &filename) {
-    happly::PLYData scene(filename, true);
+    happly::PLYData scene(filename);
     happly::Element& points = scene.getElement("vertex");
 
     glm::vec3 centroid(0.0f, 0.0f, 0.0f);
@@ -57,6 +57,8 @@ Scene* PLYLoader::loadPLy(const std::string &filename) {
     scene_buffer->vertexPos = std::move(vertexPos);
     scene_buffer->vertexColor = std::move(vertexColors);
     scene_buffer->centroid = centroid;
+
+    std::cout << "loaded scene" << std::endl;
 
     return scene_buffer;
 }

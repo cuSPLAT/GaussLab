@@ -1,2 +1,4 @@
+/external/libtorch/
+
 /build/
 /.cache/

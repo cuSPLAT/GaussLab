@@ -1,5 +1,4 @@
 #define GLFW_INCLUDE_NONE
-#include <iostream>
 
 #include "callbacks.h"
 #include "renderer.h"

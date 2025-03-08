@@ -7,6 +7,7 @@
 #include <nfd.hpp>
 
 #include "renderer.h"
+#include "data_reader/dicom_reader.h"
 
 class Interface {
     GLFWwindow* window;
@@ -14,6 +15,7 @@ class Interface {
 
     // A pointer for now will be refactored later
     Renderer* renderer;
+    DicomReader dcmReader;
 
     nfdopendialogu8args_t args;
 
