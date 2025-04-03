@@ -99,9 +99,7 @@ void Interface::setupRenderer() {
     Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/shoe.ply");
     renderer->constructScene(pcd);
 
-    std::cout << "Before reading";
-
-    dcmReader.readDirectory("/home/Abdelrahman/Downloads/DicomData/Data/Study/CT-2");
+    //dcmReader.readDirectory("/home/Abdelrahman/Downloads/DicomData/Data/Study/CT-2");
     delete pcd;
 }
 

@@ -10,7 +10,7 @@
 
 #include "camera.h"
 
-Camera::Camera(int width, int height): width(width), height(height) {
+Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) {
     cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
     cameraTarget = glm::vec3(0.0f, 0.0f, -1.0f);
     cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -37,8 +37,10 @@ void Camera::registerView(GLuint shaderId) {
     static bool first = true;
     if (!scene || first) {
         matrixLocation = glGetUniformLocation(shaderId, "projection");
-        glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
-        first = false;
+        if (matrixLocation != -1) {
+            glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
+            first = false;
+        }
     }
 }
 
@@ -107,8 +109,6 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
 }
 
 void Camera::calculateZoom(double yoffset) {
-    static float fov = 45.0f;
-
     fov -= (float)yoffset;
     if (fov < 1.0f)
         fov = 1.0f;
@@ -116,6 +116,14 @@ void Camera::calculateZoom(double yoffset) {
         fov = 89.0f; 
     
     projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
+}
+
+void Camera::calculateIntrinsics() {
+    float htany = tan(glm::radians(fov / 2));
+    float htanx = htany / height * width;
+    float focal_z = height / (2 * htany);
+
+    hfov_focal = glm::vec3(htanx, htany, focal_z);
 }
 
 void Camera::handleInput(GLFWwindow* window) {

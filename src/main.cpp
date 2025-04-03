@@ -6,12 +6,6 @@
 #include <imgui_impl_opengl3.h>
 
 #include "main_interface.h"
-// Define Gaussian
-struct GaussianPoint {
-    float x, y, z;       // Position
-    float size;          // Point size
-    float r, g, b, a;    // Color
-};
 
 int main() {
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(GausStudio VERSION 0.1)
+project(GausStudio VERSION 0.1 LANGUAGES C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -26,6 +26,7 @@ include_directories(SYSTEM "external/nativefiledialog/src/include")
 include_directories(SYSTEM "external/imgui/backends")
 include_directories(SYSTEM "external/Tigre")
 include_directories(SYSTEM "external/vega/include")
+include_directories(SYSTEM "external/RadixSort")
 
 add_executable(
    GausStudio
@@ -37,6 +38,7 @@ add_executable(
    "src/scene_loader.cpp"
    "src/callbacks.cpp"
    "src/data_reader/dicom_reader.cpp"
+   "src/cuda/render_utils.cu"
    "external/glad/src/glad.c"
    "external/imgui/imgui.cpp"
    "external/imgui/imgui_draw.cpp"
@@ -46,8 +48,13 @@ add_executable(
    "external/imgui/backends/imgui_impl_glfw.cpp"
    "external/imgui/backends/imgui_impl_opengl3.cpp"
 )
-
+target_include_directories(GausStudio PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 target_link_libraries(GausStudio "${TORCH_LIBRARIES}")
+
+# 7.5 is for turing architecture (GTX16)
+# 8.6 is for ampere (RTX)
+set_target_properties(GausStudio PROPERTIES CUDA_ARCHITECTURES "70;75;86")
+
 target_link_libraries(
     GausStudio
     OpenGL::GL

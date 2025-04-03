@@ -64,6 +64,7 @@ void DicomReader::readDirectory(const std::string& path) {
         auto max_val = volume_tensor.max(), min_val = volume_tensor.min();
         volume_tensor -= min_val;
         volume_tensor /= max_val - min_val;
+
     } else {
         //TODO: implement for DICOM files that have less that 2 bytes for 
         // a single image

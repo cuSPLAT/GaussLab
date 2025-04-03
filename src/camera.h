@@ -9,13 +9,13 @@
 
 class Camera {
     glm::mat4 view, projection;
-    glm::vec3 cameraPos;
-    glm::vec3 cameraUp;
-    glm::vec3 cameraTarget;
+    glm::vec3 cameraPos, cameraUp, cameraTarget;
     glm::vec3 direction;
     glm::vec3 sceneCentroid;
 
+    glm::vec3 hfov_focal;
 
+    float fov;
     float yaw, pitch;
     int width, height;
     GLfloat* posVector;
@@ -28,6 +28,7 @@ public:
     ~Camera();
     void registerView(GLuint shaderId);
     void handleInput(GLFWwindow* window);
+    void calculateIntrinsics();
 
     void getPositionFromShader(GLuint shaderId);
     void calculateDirection(GLFWwindow* window, double xpos, double ypos);

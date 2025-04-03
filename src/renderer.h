@@ -7,6 +7,9 @@
 #include <glad/glad.h>
 #include <vector>
 
+#include <RadixSort.hpp>
+#include <cuda_gl_interop.h>
+
 #include "camera.h"
 
 struct Scene {
@@ -21,9 +24,14 @@ class Renderer {
     GLuint frameBuffer;
     GLuint rendererBuffer;
 
+    GLuint depthBuffer_gl, depthIndices_gl;
+    GLuint sorted_depthBuffer_gl, sorted_depthIndices_gl;
+
+    cudaGraphicsResource_t depth_buffer, index_buffer;
+    cudaGraphicsResource_t sorted_depth_buffer, sorted_index_buffer;
+    cudaGraphicsResource_t cu_buffers[4];
 
     Camera camera;
-
     unsigned int width, height;
 // for public variables, to make the code cleaner
 public:
@@ -31,11 +39,13 @@ public:
 
 public:
     Renderer(int width, int height);
+    ~Renderer();
+
     void generateInitialBuffers();
     void initializeRendererBuffer();
     
     // I will do a getter later
-    GLuint shaderProgram;
+    GLuint shaderProgram, veryRealComputeProgram;
 
     void constructScene(Scene* scene);
     GLuint getRenderBuffer();
