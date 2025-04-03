@@ -1,11 +1,11 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
+#include <memory>
 #define GLFW_INCLUDE_NONE
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
-#include <vector>
 
 #include <RadixSort.hpp>
 #include <cuda_gl_interop.h>
@@ -13,8 +13,9 @@
 #include "camera.h"
 
 struct Scene {
-    std::vector<float> vertexPos;
-    std::vector<float> vertexColor;
+    std::unique_ptr<float[]> sceneDataBuffer;
+    size_t verticesCount;
+    size_t bufferSize;
     glm::vec3 centroid;
 };
 
@@ -33,6 +34,7 @@ class Renderer {
 
     Camera camera;
     unsigned int width, height;
+
 // for public variables, to make the code cleaner
 public:
      unsigned int verticesCount;

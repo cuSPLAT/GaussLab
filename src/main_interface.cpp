@@ -141,7 +141,9 @@ void Interface::startMainLoop() {
         createViewWindow();
 
         if (ImGui::Begin("Debug")) {
-            ImGui::InputScalar("Primitive Count", ImGuiDataType_U32, &renderer->verticesCount, &primtiveStepCount);
+            ImGui::InputScalar(
+                "Primitive Count", ImGuiDataType_U32, &renderer->verticesCount, &primtiveStepCount
+            );
         }
         ImGui::End();
 
@@ -150,19 +152,11 @@ void Interface::startMainLoop() {
             if (ImGui::BeginTabBar("Main Tabs")) {
                 // Camera Point View Tab
                 if (ImGui::BeginTabItem("Camera Point View")) {
-                    
-                    static float distance = 5.0f;
-                    static float farPlane = 100.0f;
-                    static int keyCameras = 0;
-                    static float rotationSpeed = 1.0f;
-                    static float acceleration = 0.3f;
-
                     static const char* items[] = {"Scene", "Object"};
-
                     static float* viewMat = renderer->getCamera()->getVectorPtr();
+
                     renderer->getCamera()->getPositionFromShader(renderer->shaderProgram);
                     float position[3] = {viewMat[12], viewMat[13], viewMat[14]};
-
 
                     ImGui::Text("Camera Position:");
                     ImGui::InputFloat3("Position", position);
@@ -175,37 +169,8 @@ void Interface::startMainLoop() {
                     
                         ImGui::EndCombo();
                     }
-
-                    ImGui::InputFloat("Distance", &distance);
-                    ImGui::InputFloat("Far", &farPlane);
-                    ImGui::InputInt("Key Cameras", &keyCameras);
-                    ImGui::InputFloat("Rotation Speed", &rotationSpeed);
-                    ImGui::InputFloat("Acceleration", &acceleration);
                     ImGui::EndTabItem();
                 }
-
-                // Metrics Tab
-                if (ImGui::BeginTabItem("Metrics")) {
-                    ImGui::Text("Frame Time: %.3f ms", 16.68f);
-                    ImGui::Text("FPS: %.2f", 59.94f);
-                    ImGui::EndTabItem();
-                }
-
-                // 3D Gaussian Tab
-                if (ImGui::BeginTabItem("3D Gaussian")) {
-                    static float splatSize = 1.0f;
-                    static bool fastCulling = true;
-                    static float scalingModifier = 1.0f;
-
-                    ImGui::InputFloat("Splat Size", &splatSize);
-                    ImGui::Checkbox("Fast Culling", &fastCulling);
-                    ImGui::InputFloat("Scaling Modifier", &scalingModifier);
-
-                    // Render the placeholder texture
-                    ImVec2 viewportSize(128, 128);
-                    ImGui::EndTabItem();
-                }
-
             }
             ImGui::EndTabBar();
         }

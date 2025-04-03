@@ -4,10 +4,6 @@
 // headache of bundling the shader files with the binary
 const char* Shaders::vertexShader = R"(
     #version 460 core
-    layout (std430, binding = 0) buffer hooray {
-        float test[];
-    };
-
     layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec3 inColor;
 

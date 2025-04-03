@@ -5,16 +5,13 @@
 #include "cuda/debug_utils.h"
 
 #include <cstddef>
-#include <iostream>
 #include <chrono>
-
-#include <RadixSort.hpp>
+#include <iostream>
 
 #include <cuda_gl_interop.h>
 
 Renderer::Renderer(int width, int height):
-    width(width), height(height), camera(width, height),
-    cu_buffers(depth_buffer, index_buffer, sorted_depth_buffer, sorted_index_buffer) {}
+    width(width), height(height), camera(width, height) {}
 
 void Renderer::initializeRendererBuffer() {
     glGenFramebuffers(1, &frameBuffer);
@@ -49,8 +46,6 @@ void Renderer::generateInitialBuffers() {
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
     glGenBuffers(1, &VBO);
-    glGenBuffers(1, &colorBuffer);
-
     // For Cuda-GL Interop
     glGenBuffers(1, &depthBuffer_gl);
     glGenBuffers(1, &depthIndices_gl);
@@ -80,10 +75,6 @@ void Renderer::generateInitialBuffers() {
     //
     //}    
 
-    // Create a shader storage buffer that will store the vertices after multiplying
-    // by the view matrix. Later it will be better to use just one and modify it in place
-    //NOTE: probably doing them in one step is much better, I am just testing
-
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
@@ -100,20 +91,15 @@ void Renderer::generateInitialBuffers() {
 }
 
 void Renderer::constructScene(Scene* scene) {
-    size_t verticesPosCount = scene->vertexPos.size();
-    size_t color_count = scene->vertexColor.size();
-    verticesCount = verticesPosCount / 3;
+    verticesCount = scene->verticesCount;
     camera.setCentroid(scene->centroid);
-
     camera.registerView(shaderProgram);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, verticesPosCount * sizeof(float), scene->vertexPos.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
 
-    glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-    glBufferData(GL_ARRAY_BUFFER, color_count * sizeof(float), scene->vertexColor.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 13 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 13 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     std::cout << "Current vertices count " << verticesCount << std::endl;
@@ -139,6 +125,11 @@ void Renderer::constructScene(Scene* scene) {
     CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_depth_buffer, sorted_depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
     CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_index_buffer, sorted_depthIndices_gl, cudaGraphicsRegisterFlagsNone),true)
 
+    // *Ugly ahh code*
+    cu_buffers[0] = depth_buffer;
+    cu_buffers[1] = index_buffer;
+    cu_buffers[2] = sorted_depth_buffer;
+    cu_buffers[3] = sorted_index_buffer;
 }
 
 Camera* Renderer::getCamera() {
@@ -154,15 +145,14 @@ void Renderer::render(GLFWwindow* window) {
 
     // We aren't drawing anything, just computing
     glEnable(GL_RASTERIZER_DISCARD);
-
     glUseProgram(veryRealComputeProgram);
     glDrawArrays(GL_POINTS, 0, verticesCount);
 
     glDisable(GL_RASTERIZER_DISCARD);
 
     TIME_SANDWICH_START(CUDA_INTEROP)
+    cudaGraphicsMapResources(4, cu_buffers);
 
-    CHECK_CUDA(cudaGraphicsMapResources(4, &depth_buffer), true)
     void *d_depth_ptr, *d_index_ptr, *d_sortedDepth_ptr, *d_sortedIndex_ptr;
     size_t depth_buffer_size, index_buffer_size, sorted_depth_size, sorted_index_size;
     CHECK_CUDA(cudaGraphicsResourceGetMappedPointer(&d_depth_ptr, &depth_buffer_size, depth_buffer), true)
@@ -175,7 +165,7 @@ void Renderer::render(GLFWwindow* window) {
         (float*)d_depth_ptr, (float*)d_sortedDepth_ptr, verticesCount
     );
 
-    CHECK_CUDA(cudaGraphicsUnmapResources(4, &depth_buffer), true)
+    cudaGraphicsUnmapResources(4, cu_buffers);
     TIME_SANDWICH_END(CUDA_INTEROP)
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
