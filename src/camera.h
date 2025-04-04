@@ -28,7 +28,7 @@ public:
     ~Camera();
     void registerView(GLuint shaderId);
     void handleInput(GLFWwindow* window);
-    void calculateIntrinsics();
+    void uploadIntrinsics(GLuint program);
 
     void getPositionFromShader(GLuint shaderId);
     void calculateDirection(GLFWwindow* window, double xpos, double ypos);

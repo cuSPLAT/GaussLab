@@ -10,8 +10,21 @@
 
 #include <cuda_gl_interop.h>
 
+float Renderer::quadVertices[8] = {
+    -1.0f, 1.0f,
+    1.0f, 1.0f,
+    1.0f, -1.0f,
+    -1.0f, -1.0f
+};
+
+int Renderer::quadIndices[6] = {
+    0, 1, 2,
+    0, 2, 3
+};
+
 Renderer::Renderer(int width, int height):
-    width(width), height(height), camera(width, height) {}
+    width(width), height(height), camera(width, height),
+    renderingMode(Mode::PCD) {}
 
 void Renderer::initializeRendererBuffer() {
     glGenFramebuffers(1, &frameBuffer);
@@ -51,18 +64,31 @@ void Renderer::generateInitialBuffers() {
     glGenBuffers(1, &depthIndices_gl);
     glGenBuffers(1, &sorted_depthBuffer_gl);
     glGenBuffers(1, &sorted_depthIndices_gl);
-    
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &Shaders::vertexShader, nullptr);
-    glCompileShader(vertexShader);
 
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &Shaders::fragmentShader, nullptr);
-    glCompileShader(fragmentShader);
+    glGenBuffers(1, &quadVBO);
+    glGenBuffers(1, &quadEBO);
+
+    glGenBuffers(1, &gaussianDataBuffer);
+    
+    GLuint PCDVertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(PCDVertexShader, 1, &Shaders::vertexShader, nullptr);
+    glCompileShader(PCDVertexShader);
+
+    GLuint PCDFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(PCDFragmentShader, 1, &Shaders::fragmentShader, nullptr);
+    glCompileShader(PCDFragmentShader);
 
     GLuint veryRealComputeShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(veryRealComputeShader, 1, &Shaders::viewMatMulCompute, nullptr);
     glCompileShader(veryRealComputeShader);
+
+    GLuint GaussianVertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(GaussianVertexShader, 1, &Shaders::gaussianVertexShader, nullptr);
+    glCompileShader(GaussianVertexShader);
+
+    GLuint GaussianFragmentShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(GaussianFragmentShader, 1, &Shaders::gaussianFragmentShader, nullptr);
+    glCompileShader(GaussianFragmentShader);
     
     //TODO: move this to a macro or inline function
     //int  success;
@@ -76,17 +102,23 @@ void Renderer::generateInitialBuffers() {
     //}    
 
     shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
+    glAttachShader(shaderProgram, PCDVertexShader);
+    glAttachShader(shaderProgram, PCDFragmentShader);
     glLinkProgram(shaderProgram);
 
     veryRealComputeProgram = glCreateProgram();
     glAttachShader(veryRealComputeProgram, veryRealComputeShader);
     glLinkProgram(veryRealComputeProgram);
 
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    gaussRenProgram = glCreateProgram();
+    glAttachShader(gaussRenProgram, GaussianVertexShader);
+    glAttachShader(gaussRenProgram, GaussianFragmentShader);
+    glLinkProgram(gaussRenProgram);
+
+    glDeleteShader(PCDVertexShader);
+    glDeleteShader(PCDFragmentShader);
     glDeleteShader(veryRealComputeShader);
+    glDeleteShader(GaussianVertexShader);
 
 }
 
@@ -97,13 +129,23 @@ void Renderer::constructScene(Scene* scene) {
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 13 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 13 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     std::cout << "Current vertices count " << verticesCount << std::endl;
 
+    // the data of the rectangle that a Gaussian will occupy
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
+    // -----------------------------------------------
+    
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthBuffer_gl);
     glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(float), NULL, GL_DYNAMIC_READ);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, depthBuffer_gl);
@@ -130,6 +172,15 @@ void Renderer::constructScene(Scene* scene) {
     cu_buffers[1] = index_buffer;
     cu_buffers[2] = sorted_depth_buffer;
     cu_buffers[3] = sorted_index_buffer;
+
+    //TODO: When you are sure everything works, don't use VBOs for Gaussian data anymore
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, gaussianDataBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
+
+    //TODO: understand this
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 Camera* Renderer::getCamera() {
@@ -139,6 +190,7 @@ Camera* Renderer::getCamera() {
 void Renderer::render(GLFWwindow* window) {
     camera.registerView(shaderProgram);
     camera.registerView(veryRealComputeProgram);
+    camera.registerView(gaussRenProgram);
     camera.handleInput(window);
 
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -171,10 +223,16 @@ void Renderer::render(GLFWwindow* window) {
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
     // drawing into the small window happens here
-    // we only have one VAO and one shader that are always binded cudaGraphicsMapResources
+    // we only have one VAO and one shader that are always binded
     // no need to rebind them on every draw call
-    glUseProgram(shaderProgram);
-    glDrawArrays(GL_POINTS, 0, verticesCount);
+    if (renderingMode == Mode::PCD) {
+        glUseProgram(shaderProgram);
+        glDrawArrays(GL_POINTS, 0, verticesCount);
+    } else {
+        glUseProgram(gaussRenProgram);
+        camera.uploadIntrinsics(gaussRenProgram);
+        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, verticesCount);
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     camera.updateView();

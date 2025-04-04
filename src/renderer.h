@@ -20,13 +20,26 @@ struct Scene {
 };
 
 class Renderer {
+    static float quadVertices[8];
+    static int quadIndices[6];
+
+    enum class Mode {
+        Splats,
+        PCD
+    };
+
     GLuint VBO, VAO;
-    GLuint colorBuffer;
+    GLuint quadVBO, quadEBO;
     GLuint frameBuffer;
     GLuint rendererBuffer;
 
+    // complete data of the Gaussians;
+    GLuint gaussianDataBuffer;
+
     GLuint depthBuffer_gl, depthIndices_gl;
     GLuint sorted_depthBuffer_gl, sorted_depthIndices_gl;
+
+    Mode renderingMode;
 
     cudaGraphicsResource_t depth_buffer, index_buffer;
     cudaGraphicsResource_t sorted_depth_buffer, sorted_index_buffer;
@@ -34,6 +47,7 @@ class Renderer {
 
     Camera camera;
     unsigned int width, height;
+
 
 // for public variables, to make the code cleaner
 public:
@@ -48,6 +62,7 @@ public:
     
     // I will do a getter later
     GLuint shaderProgram, veryRealComputeProgram;
+    GLuint gaussRenProgram;
 
     void constructScene(Scene* scene);
     GLuint getRenderBuffer();
