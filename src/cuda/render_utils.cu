@@ -1,11 +1,15 @@
+#include <cstdio>
 #include <cub/cub.cuh>
+#include <thrust/device_ptr.h>
 
 #include "render_utils.h"
+#include "debug_utils.h"
+
 
 void* RenderUtils::temp_storage = nullptr;
 size_t RenderUtils::temp_storage_size = 0;
 
-void RenderUtils::sort_gaussians_gpu(int* keys_in, int* keys_out, float* val_in, float* val_out, int num) {
+void RenderUtils::sort_gaussians_gpu(float* keys_in, float* keys_out, int* val_in, int* val_out, int num) {
     using _this = RenderUtils;
 
     // THe first time we run this we have to know the size of the temp
@@ -15,9 +19,17 @@ void RenderUtils::sort_gaussians_gpu(int* keys_in, int* keys_out, float* val_in,
             nullptr, _this::temp_storage_size, keys_in, keys_out, val_in, val_out, num
         );
         cudaMalloc(&_this::temp_storage, _this::temp_storage_size);
+        std::cout << "First time, needed storage of: " << _this::temp_storage_size << " bytes"
+            << std::endl;
     }
 
-    cub::DeviceRadixSort::SortPairs(
+    //int i = 4; printf("element number %d is equal to keys out%d\n",i,(int)*(dev_ptr_key+i));
+    CHECK_CUDA(cub::DeviceRadixSort::SortPairs(
         _this::temp_storage, _this::temp_storage_size, keys_in, keys_out, val_in, val_out, num
-    );
+    ), true)
+
+    if (false) {
+        static thrust::device_ptr<int> dev_ptr_sortedindex = thrust::device_pointer_cast(val_out);
+        std::cout << "Lowest index: " << *dev_ptr_sortedindex << std::endl;
+    }
 }

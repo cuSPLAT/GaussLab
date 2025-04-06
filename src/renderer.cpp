@@ -24,7 +24,7 @@ int Renderer::quadIndices[6] = {
 
 Renderer::Renderer(int width, int height):
     width(width), height(height), camera(width, height),
-    renderingMode(Mode::PCD) {}
+    renderingMode(Mode::Splats) {}
 
 void Renderer::initializeRendererBuffer() {
     glGenFramebuffers(1, &frameBuffer);
@@ -86,20 +86,20 @@ void Renderer::generateInitialBuffers() {
     glShaderSource(GaussianVertexShader, 1, &Shaders::gaussianVertexShader, nullptr);
     glCompileShader(GaussianVertexShader);
 
-    GLuint GaussianFragmentShader = glCreateShader(GL_VERTEX_SHADER);
+    GLuint GaussianFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(GaussianFragmentShader, 1, &Shaders::gaussianFragmentShader, nullptr);
     glCompileShader(GaussianFragmentShader);
     
     //TODO: move this to a macro or inline function
-    //int  success;
-    //char infoLog[512];
-    //glGetShaderiv(veryRealComputeShader, GL_COMPILE_STATUS, &success);
-    //if(!success)
-    //{
-    //    glGetShaderInfoLog(veryRealComputeShader, 512, NULL, infoLog);
-    //    std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    //
-    //}    
+    int  success;
+    char infoLog[512];
+    glGetShaderiv(GaussianFragmentShader, GL_COMPILE_STATUS, &success);
+    if(!success)
+    {
+        glGetShaderInfoLog(GaussianFragmentShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+    
+    }    
 
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, PCDVertexShader);
@@ -188,9 +188,6 @@ Camera* Renderer::getCamera() {
 }
 
 void Renderer::render(GLFWwindow* window) {
-    camera.registerView(shaderProgram);
-    camera.registerView(veryRealComputeProgram);
-    camera.registerView(gaussRenProgram);
     camera.handleInput(window);
 
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
@@ -198,11 +195,12 @@ void Renderer::render(GLFWwindow* window) {
     // We aren't drawing anything, just computing
     glEnable(GL_RASTERIZER_DISCARD);
     glUseProgram(veryRealComputeProgram);
+    camera.registerView(veryRealComputeProgram);
     glDrawArrays(GL_POINTS, 0, verticesCount);
 
     glDisable(GL_RASTERIZER_DISCARD);
 
-    TIME_SANDWICH_START(CUDA_INTEROP)
+    //TIME_SANDWICH_START(CUDA_INTEROP)
     cudaGraphicsMapResources(4, cu_buffers);
 
     void *d_depth_ptr, *d_index_ptr, *d_sortedDepth_ptr, *d_sortedIndex_ptr;
@@ -213,12 +211,12 @@ void Renderer::render(GLFWwindow* window) {
     cudaGraphicsResourceGetMappedPointer(&d_sortedIndex_ptr, &sorted_index_size, sorted_index_buffer);
 
     RenderUtils::sort_gaussians_gpu(
-        (int*)d_index_ptr, (int*)d_sortedIndex_ptr,
-        (float*)d_depth_ptr, (float*)d_sortedDepth_ptr, verticesCount
+        (float*)d_depth_ptr, (float*)d_sortedDepth_ptr,
+        (int*)d_index_ptr, (int*)d_sortedIndex_ptr, verticesCount
     );
 
     cudaGraphicsUnmapResources(4, cu_buffers);
-    TIME_SANDWICH_END(CUDA_INTEROP)
+    //TIME_SANDWICH_END(CUDA_INTEROP)
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -227,9 +225,11 @@ void Renderer::render(GLFWwindow* window) {
     // no need to rebind them on every draw call
     if (renderingMode == Mode::PCD) {
         glUseProgram(shaderProgram);
+        camera.registerView(shaderProgram);
         glDrawArrays(GL_POINTS, 0, verticesCount);
     } else {
         glUseProgram(gaussRenProgram);
+        camera.registerView(gaussRenProgram);
         camera.uploadIntrinsics(gaussRenProgram);
         glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, verticesCount);
     }

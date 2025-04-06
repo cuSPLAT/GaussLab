@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iostream>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/fwd.hpp>

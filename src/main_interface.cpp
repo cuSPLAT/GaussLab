@@ -25,6 +25,7 @@ bool Interface::setupWindow() {
     glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
     glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 
     window = glfwCreateWindow(mode->width, mode->height, "GausStudio", nullptr, nullptr);
     if (!window) {
@@ -73,7 +74,7 @@ void Interface::setupImgui() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 130");
+    ImGui_ImplOpenGL3_Init("#version 460");
     ImGui::StyleColorsDark();
 }
 
@@ -96,7 +97,7 @@ void Interface::setupRenderer() {
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
 
-    Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/shoe.ply");
+    Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/van_gogh_room.ply");
     renderer->constructScene(pcd);
 
     //dcmReader.readDirectory("/home/Abdelrahman/Downloads/DicomData/Data/Study/CT-2");
@@ -106,7 +107,7 @@ void Interface::setupRenderer() {
 void Interface::createViewWindow() {
     if (ImGui::Begin("View")) {
         ImVec2 viewSize = ImGui::GetWindowSize();
-        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize);
+        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize, ImVec2(1,0), ImVec2(0, 1));
     }
     ImGui::End();
 }

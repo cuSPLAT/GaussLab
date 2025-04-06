@@ -1,3 +1,5 @@
+#pragma once
+
 #define CHECK_CUDA(A, debug) \
 { \
     auto ret = A; \
