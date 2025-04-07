@@ -42,6 +42,7 @@ const char* Shaders::viewMatMulCompute = R"(
     };
 
     uniform mat4 view;
+    uniform mat4 projection;
 
     void main() {
         vec4 world_space = view * vec4(aPos, 1.0);

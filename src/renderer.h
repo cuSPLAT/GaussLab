@@ -1,6 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
+#include <imgui.h>
 #include <memory>
 #define GLFW_INCLUDE_NONE
 
@@ -59,7 +60,6 @@ public:
 
     void generateInitialBuffers();
     void initializeRendererBuffer();
-    
     // I will do a getter later
     GLuint shaderProgram, veryRealComputeProgram;
     GLuint gaussRenProgram;

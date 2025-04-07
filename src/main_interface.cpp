@@ -107,7 +107,7 @@ void Interface::setupRenderer() {
 void Interface::createViewWindow() {
     if (ImGui::Begin("View")) {
         ImVec2 viewSize = ImGui::GetWindowSize();
-        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize, ImVec2(1,0), ImVec2(0, 1));
+        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize, ImVec2(0,1), ImVec2(1, 0));
     }
     ImGui::End();
 }

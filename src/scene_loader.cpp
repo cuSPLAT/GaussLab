@@ -59,7 +59,7 @@ Scene* PLYLoader::loadPLy(const std::string &filename) {
         centroid.y += flatDataBuffer[i + 1];
         //TODO: Understand the current coordinate system ? 
         // why the hell Z has values larger than 1 ?
-        flatDataBuffer[i + 2] = modifier * (z[i / 14] - 1); 
+        flatDataBuffer[i + 2] = (z[i / 14] - 1); 
         centroid.z += flatDataBuffer[i + 2];
 
         flatDataBuffer[i + 3] = r[i / 14]; 
@@ -75,7 +75,7 @@ Scene* PLYLoader::loadPLy(const std::string &filename) {
         flatDataBuffer[i + 10] = rot_0[i / 14]; 
         flatDataBuffer[i + 11] = rot_1[i / 14]; 
         flatDataBuffer[i + 12] = rot_2[i / 14]; 
-        flatDataBuffer[i + 13] = rot_2[i / 14]; 
+        flatDataBuffer[i + 13] = rot_3[i / 14]; 
     }
     centroid /= x.size();
 
