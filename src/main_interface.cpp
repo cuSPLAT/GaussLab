@@ -178,6 +178,7 @@ void Interface::startMainLoop() {
                         ImGui::EndCombo();
                     }
                     // ---------------------------------------------------
+                    ImGui::Checkbox("Sorting", &globalState.sortingEnabled);
                     ImGui::EndTabItem();
                 }
             }

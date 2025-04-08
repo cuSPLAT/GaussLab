@@ -31,6 +31,7 @@ struct GlobalState {
 
     // write from GUI only
     RenderMode renderingMode = RenderMode::Splats;
+    bool sortingEnabled = true;
 };
 extern GlobalState globalState;
 

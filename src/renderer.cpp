@@ -202,23 +202,25 @@ void Renderer::render(GLFWwindow* window) {
 
     glDisable(GL_RASTERIZER_DISCARD);
 
+    if (globalState.sortingEnabled) {
     //TIME_SANDWICH_START(CUDA_INTEROP)
-    cudaGraphicsMapResources(4, cu_buffers);
+        cudaGraphicsMapResources(4, cu_buffers);
 
-    void *d_depth_ptr, *d_index_ptr, *d_sortedDepth_ptr, *d_sortedIndex_ptr;
-    size_t depth_buffer_size, index_buffer_size, sorted_depth_size, sorted_index_size;
-    CHECK_CUDA(cudaGraphicsResourceGetMappedPointer(&d_depth_ptr, &depth_buffer_size, depth_buffer), true)
-    cudaGraphicsResourceGetMappedPointer(&d_index_ptr, &index_buffer_size, index_buffer);
-    cudaGraphicsResourceGetMappedPointer(&d_sortedDepth_ptr, &sorted_depth_size, sorted_depth_buffer);
-    cudaGraphicsResourceGetMappedPointer(&d_sortedIndex_ptr, &sorted_index_size, sorted_index_buffer);
+        void *d_depth_ptr, *d_index_ptr, *d_sortedDepth_ptr, *d_sortedIndex_ptr;
+        size_t depth_buffer_size, index_buffer_size, sorted_depth_size, sorted_index_size;
+        CHECK_CUDA(cudaGraphicsResourceGetMappedPointer(&d_depth_ptr, &depth_buffer_size, depth_buffer), true)
+        cudaGraphicsResourceGetMappedPointer(&d_index_ptr, &index_buffer_size, index_buffer);
+        cudaGraphicsResourceGetMappedPointer(&d_sortedDepth_ptr, &sorted_depth_size, sorted_depth_buffer);
+        cudaGraphicsResourceGetMappedPointer(&d_sortedIndex_ptr, &sorted_index_size, sorted_index_buffer);
 
-    RenderUtils::sort_gaussians_gpu(
-        (float*)d_depth_ptr, (float*)d_sortedDepth_ptr,
-        (int*)d_index_ptr, (int*)d_sortedIndex_ptr, verticesCount, newScene
-    );
+        RenderUtils::sort_gaussians_gpu(
+            (float*)d_depth_ptr, (float*)d_sortedDepth_ptr,
+            (int*)d_index_ptr, (int*)d_sortedIndex_ptr, verticesCount, newScene
+        );
 
-    cudaGraphicsUnmapResources(4, cu_buffers);
-    //TIME_SANDWICH_END(CUDA_INTEROP)
+        cudaGraphicsUnmapResources(4, cu_buffers);
+        //TIME_SANDWICH_END(CUDA_INTEROP)
+    }
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
