@@ -20,14 +20,23 @@ struct Scene {
     glm::vec3 centroid;
 };
 
-class Renderer {
-    static float quadVertices[8];
-    static int quadIndices[6];
-
-    enum class Mode {
+// A global state for the renderer, this will be used to pass data between classes
+// instead of always having to call a function from one class with certain parameters
+// which would get messy after time
+struct GlobalState {
+    enum class RenderMode {
         Splats,
         PCD
     };
+
+    // write from GUI only
+    RenderMode renderingMode = RenderMode::Splats;
+};
+extern GlobalState globalState;
+
+class Renderer {
+    static float quadVertices[8];
+    static int quadIndices[6];
 
     GLuint VBO, VAO;
     GLuint quadVBO, quadEBO;
@@ -39,8 +48,7 @@ class Renderer {
 
     GLuint depthBuffer_gl, depthIndices_gl;
     GLuint sorted_depthBuffer_gl, sorted_depthIndices_gl;
-
-    Mode renderingMode;
+    bool newScene;
 
     cudaGraphicsResource_t depth_buffer, index_buffer;
     cudaGraphicsResource_t sorted_depth_buffer, sorted_index_buffer;

@@ -22,9 +22,10 @@ int Renderer::quadIndices[6] = {
     0, 2, 3
 };
 
+GlobalState globalState;
+
 Renderer::Renderer(int width, int height):
-    width(width), height(height), camera(width, height),
-    renderingMode(Mode::Splats) {}
+    width(width), height(height), camera(width, height) {}
 
 void Renderer::initializeRendererBuffer() {
     glGenFramebuffers(1, &frameBuffer);
@@ -126,6 +127,7 @@ void Renderer::constructScene(Scene* scene) {
     verticesCount = scene->verticesCount;
     camera.setCentroid(scene->centroid);
     camera.registerView(shaderProgram);
+    newScene = true;
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
@@ -212,7 +214,7 @@ void Renderer::render(GLFWwindow* window) {
 
     RenderUtils::sort_gaussians_gpu(
         (float*)d_depth_ptr, (float*)d_sortedDepth_ptr,
-        (int*)d_index_ptr, (int*)d_sortedIndex_ptr, verticesCount
+        (int*)d_index_ptr, (int*)d_sortedIndex_ptr, verticesCount, newScene
     );
 
     cudaGraphicsUnmapResources(4, cu_buffers);
@@ -223,7 +225,7 @@ void Renderer::render(GLFWwindow* window) {
     // drawing into the small window happens here
     // we only have one VAO and one shader that are always binded
     // no need to rebind them on every draw call
-    if (renderingMode == Mode::PCD) {
+    if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
         glUseProgram(shaderProgram);
         camera.registerView(shaderProgram);
         glDrawArrays(GL_POINTS, 0, verticesCount);
@@ -243,4 +245,5 @@ Renderer::~Renderer() {
     cudaGraphicsUnregisterResource(index_buffer);
     cudaGraphicsUnregisterResource(sorted_depth_buffer);
     cudaGraphicsUnregisterResource(sorted_index_buffer);
+    RenderUtils::cleanUp();
 }

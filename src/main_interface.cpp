@@ -1,5 +1,6 @@
 #include "main_interface.h"
 #include "nfd.h"
+#include "renderer.h"
 #include "scene_loader.h"
 #include "callbacks.h"
 
@@ -97,7 +98,7 @@ void Interface::setupRenderer() {
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
 
-    Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/van_gogh_room.ply");
+    Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/christmas_tree.ply");
     renderer->constructScene(pcd);
 
     //dcmReader.readDirectory("/home/Abdelrahman/Downloads/DicomData/Data/Study/CT-2");
@@ -148,28 +149,35 @@ void Interface::startMainLoop() {
         }
         ImGui::End();
 
-        // Create main tabs
         if(ImGui::Begin("Tabs")) {
             if (ImGui::BeginTabBar("Main Tabs")) {
                 // Camera Point View Tab
                 if (ImGui::BeginTabItem("Camera Point View")) {
-                    static const char* items[] = {"Scene", "Object"};
                     static float* viewMat = renderer->getCamera()->getVectorPtr();
-
                     renderer->getCamera()->getPositionFromShader(renderer->shaderProgram);
                     float position[3] = {viewMat[12], viewMat[13], viewMat[14]};
 
                     ImGui::Text("Camera Position:");
                     ImGui::InputFloat3("Position", position);
 
-                    if (ImGui::BeginCombo("Mode of operation", "select")) {
-                        if (ImGui::Selectable("Scene"))
-                            renderer->getCamera()->scene = true;
-                        if (ImGui::Selectable("Object"))
-                            renderer->getCamera()->scene = false;
+                    // Point cloud or Gaussian splatting view mode selection
+                    bool &scene_mode = renderer->getCamera()->scene;
+                    if (ImGui::RadioButton("Scene", scene_mode))
+                        scene_mode = true;
+                    ImGui::SameLine();
+                    if (ImGui::RadioButton("Object", !scene_mode))
+                        scene_mode = false;
+                    // ---------------------------------------------------
+                    // Rendering mode selection
+                    if (ImGui::BeginCombo("Render Mode", "select")) {
+                        if (ImGui::Selectable("PCD"))
+                            globalState.renderingMode = GlobalState::RenderMode::PCD;
+                        if (ImGui::Selectable("Splats"))
+                            globalState.renderingMode = GlobalState::RenderMode::Splats;
                     
                         ImGui::EndCombo();
                     }
+                    // ---------------------------------------------------
                     ImGui::EndTabItem();
                 }
             }
@@ -180,10 +188,8 @@ void Interface::startMainLoop() {
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
         renderer->render(window);
 
-        // Swap buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
