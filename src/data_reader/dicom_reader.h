@@ -12,5 +12,5 @@ class DicomReader {
 public:
     DicomReader(const std::string& dictionary = "");
     
-    void readDirectory(const std::string& path);
+    std::tuple<float*, int, int, int> readDirectory(const std::string& path);
 };

@@ -2,31 +2,44 @@
 
 // defining the shaders in variables just to prevent the
 // headache of bundling the shader files with the binary
+//
+// This is marching cubes shader for now
 const char* Shaders::vertexShader = R"(
     #version 460 core
     layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 inColor;
+    layout (location = 1) in vec3 aNormal;
 
-    out vec4 vertexColor;
+    out vec3 Normal;
+    out vec3 FragPos;
+    out vec3 vertexColor;
 
     uniform mat4 view;
     uniform mat4 projection;
 
     void main() {
-        gl_Position = projection * view * vec4(aPos, 1.0);
-        gl_PointSize = 1.5f;
-        vertexColor = vec4(inColor * 0.282 + 0.5, 1.0);
+        gl_Position = projection * view * vec4(aPos, 1.0f);
+        FragPos = vec3(view * vec4(aPos, 1.0f));
+        vertexColor = vec3(0.6, 0.6, 0.6);
+        Normal = normalize(aNormal);
     }
 )";
 
 const char* Shaders::fragmentShader = R"(
     #version 460 core
-    in vec4 vertexColor;
+    in vec3 vertexColor;
+    in vec3 Normal;
+    in vec3 FragPos;
 
     out vec4 FragColor;
 
     void main() {
-        FragColor = vertexColor;
+        vec3 lightDir = normalize(vec3(0, 0, 0) - FragPos);
+
+        float diff = max(dot(Normal, lightDir), 0.0);
+        vec3 diffuse = diff * vec3(0.9, 0.9, 0.9);
+        // Ambient + diffuse
+        vec3 result = (0.3f + diffuse) * vertexColor; 
+        FragColor = vec4(result, 1.0f);
     }
 )";
 

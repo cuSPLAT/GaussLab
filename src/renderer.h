@@ -30,8 +30,8 @@ struct GlobalState {
     };
 
     // write from GUI only
-    RenderMode renderingMode = RenderMode::Splats;
-    bool sortingEnabled = true;
+    RenderMode renderingMode = RenderMode::PCD;
+    bool sortingEnabled = false;
 };
 extern GlobalState globalState;
 
@@ -73,7 +73,7 @@ public:
     GLuint shaderProgram, veryRealComputeProgram;
     GLuint gaussRenProgram;
 
-    void constructScene(Scene* scene);
+    void constructScene(Scene* scene, std::vector<float>& vertices);
     GLuint getRenderBuffer();
 
     Camera* getCamera();

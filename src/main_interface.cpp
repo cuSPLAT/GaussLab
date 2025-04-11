@@ -1,4 +1,6 @@
 #include "main_interface.h"
+#include "algorithms/marchingcubes.h"
+#include "cuda/debug_utils.h"
 #include "nfd.h"
 #include "renderer.h"
 #include "scene_loader.h"
@@ -15,6 +17,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui.h>
+#include <vector>
 
 Interface::Interface() = default;
 
@@ -98,10 +101,22 @@ void Interface::setupRenderer() {
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
 
-    Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/christmas_tree.ply");
-    renderer->constructScene(pcd);
+    auto [buffer, width, length, height] = dcmReader.readDirectory("/home/Abdelrahman/Downloads/DicomData/Data/Study/CT-2");
+    DensityField field(buffer, width, length, height, 0); 
 
-    //dcmReader.readDirectory("/home/Abdelrahman/Downloads/DicomData/Data/Study/CT-2");
+    TIME_SANDWICH_START(marching_cubes_time)
+    std::vector<float> vertices;
+    glm::vec3 centroid(0.0f);
+    marching_cubes(field, 1000, vertices, centroid);
+    std::cout << centroid.x << std::endl;
+    TIME_SANDWICH_END(marching_cubes_time);
+
+    Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/christmas_tree.ply");
+    pcd->centroid = centroid;
+    renderer->constructScene(pcd, vertices);
+
+
+    delete[] buffer;
     delete pcd;
 }
 
@@ -204,7 +219,7 @@ void Interface::createMenuBar() {
                 std::string path = openFileDialog();
 
                 Scene* pcd = PLYLoader::loadPLy(path);
-                renderer->constructScene(pcd);
+                //renderer->constructScene(pcd);
                 delete pcd;
             }
             ImGui::EndMenu();

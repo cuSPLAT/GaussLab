@@ -39,6 +39,7 @@ add_executable(
    "src/callbacks.cpp"
    "src/data_reader/dicom_reader.cpp"
    "src/cuda/render_utils.cu"
+   "src/algorithms/marchingcubes.cpp"
    "external/glad/src/glad.c"
    "external/imgui/imgui.cpp"
    "external/imgui/imgui_draw.cpp"

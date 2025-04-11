@@ -9,6 +9,7 @@
 #include <iostream>
 
 #include <cuda_gl_interop.h>
+#include <vector>
 
 float Renderer::quadVertices[8] = {
     -1.0f, 1.0f,
@@ -94,10 +95,10 @@ void Renderer::generateInitialBuffers() {
     //TODO: move this to a macro or inline function
     int  success;
     char infoLog[512];
-    glGetShaderiv(GaussianFragmentShader, GL_COMPILE_STATUS, &success);
+    glGetShaderiv(PCDFragmentShader, GL_COMPILE_STATUS, &success);
     if(!success)
     {
-        glGetShaderInfoLog(GaussianFragmentShader, 512, NULL, infoLog);
+        glGetShaderInfoLog(PCDFragmentShader, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
     
     }    
@@ -123,18 +124,21 @@ void Renderer::generateInitialBuffers() {
 
 }
 
-void Renderer::constructScene(Scene* scene) {
-    verticesCount = scene->verticesCount;
+void Renderer::constructScene(Scene* scene, std::vector<float>& vertices) {
+    verticesCount = vertices.size() / 2;
     camera.setCentroid(scene->centroid);
     camera.registerView(shaderProgram);
     newScene = true;
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
+    // Temporary normals
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
+    //glEnableVertexAttribArray(1);
 
     std::cout << "Current vertices count " << verticesCount << std::endl;
 
@@ -164,10 +168,10 @@ void Renderer::constructScene(Scene* scene) {
     glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(int), NULL, GL_DYNAMIC_READ);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, sorted_depthIndices_gl);
 
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&depth_buffer, depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&index_buffer, depthIndices_gl, cudaGraphicsRegisterFlagsNone), true)
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_depth_buffer, sorted_depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_index_buffer, sorted_depthIndices_gl, cudaGraphicsRegisterFlagsNone),true)
+    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&depth_buffer, depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
+    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&index_buffer, depthIndices_gl, cudaGraphicsRegisterFlagsNone), true)
+    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_depth_buffer, sorted_depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
+    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_index_buffer, sorted_depthIndices_gl, cudaGraphicsRegisterFlagsNone),true)
 
     // *Ugly ahh code*
     cu_buffers[0] = depth_buffer;
@@ -230,7 +234,7 @@ void Renderer::render(GLFWwindow* window) {
     if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
         glUseProgram(shaderProgram);
         camera.registerView(shaderProgram);
-        glDrawArrays(GL_POINTS, 0, verticesCount);
+        glDrawArrays(GL_TRIANGLES, 0, verticesCount);
     } else {
         glUseProgram(gaussRenProgram);
         camera.registerView(gaussRenProgram);
@@ -243,9 +247,9 @@ void Renderer::render(GLFWwindow* window) {
 }
 
 Renderer::~Renderer() {
-    cudaGraphicsUnregisterResource(depth_buffer);
-    cudaGraphicsUnregisterResource(index_buffer);
-    cudaGraphicsUnregisterResource(sorted_depth_buffer);
-    cudaGraphicsUnregisterResource(sorted_index_buffer);
-    RenderUtils::cleanUp();
+    //cudaGraphicsUnregisterResource(depth_buffer);
+    //cudaGraphicsUnregisterResource(index_buffer);
+    //cudaGraphicsUnregisterResource(sorted_depth_buffer);
+    //cudaGraphicsUnregisterResource(sorted_index_buffer);
+    //RenderUtils::cleanUp();
 }

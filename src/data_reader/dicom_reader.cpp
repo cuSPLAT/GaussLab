@@ -5,6 +5,7 @@
 #include <string>
 
 #include <torch/types.h>
+#include <tuple>
 
 namespace fs = std::filesystem;
 
@@ -21,10 +22,10 @@ static bool zAxisComparison(vega::dicom::File &f1, vega::dicom::File &f2) {
     auto f2_position_manipulator = getDataManipulator(f2, vega::dictionary::ImagePositionPatient);
     
     return static_cast<float>(f1_position_manipulator->begin()[2]) 
-        < static_cast<double>(f2_position_manipulator->begin()[2]);
+        < static_cast<float>(f2_position_manipulator->begin()[2]);
 }
 
-void DicomReader::readDirectory(const std::string& path) {
+std::tuple<float*, int, int, int> DicomReader::readDirectory(const std::string& path) {
     for (const auto &entry: fs::directory_iterator(path)) {
         dicomFiles.emplace_back(entry.path().string());
     }
@@ -60,16 +61,15 @@ void DicomReader::readDirectory(const std::string& path) {
 
         // I just created this tensor to use the optimizations that torch gives me
         // and there is no overhead because torch does not clone the data
-        torch::Tensor volume_tensor = torch::from_blob(volume, {length}, torch::kFloat);
-        auto max_val = volume_tensor.max(), min_val = volume_tensor.min();
-        volume_tensor -= min_val;
-        volume_tensor /= max_val - min_val;
+        //torch::Tensor volume_tensor = torch::from_blob(volume, {length}, torch::kFloat);
+        //auto max_val = volume_tensor.max(), min_val = volume_tensor.min();
+        //volume_tensor -= min_val;
+        //volume_tensor /= max_val - min_val;
 
     } else {
         //TODO: implement for DICOM files that have less that 2 bytes for 
         // a single image
     }
 
-
-    delete[] volume;
+    return std::make_tuple(volume, width, height, dicomFiles.size());
 }
