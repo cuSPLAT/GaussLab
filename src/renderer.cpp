@@ -125,7 +125,7 @@ void Renderer::generateInitialBuffers() {
 }
 
 void Renderer::constructScene(Scene* scene, std::vector<float>& vertices) {
-    verticesCount = vertices.size() / 2;
+    verticesCount = vertices.size() / 6;
     camera.setCentroid(scene->centroid);
     camera.registerView(shaderProgram);
     newScene = true;
@@ -141,6 +141,7 @@ void Renderer::constructScene(Scene* scene, std::vector<float>& vertices) {
     //glEnableVertexAttribArray(1);
 
     std::cout << "Current vertices count " << verticesCount << std::endl;
+    std::cout << "Total buffer size " << vertices.size() << std::endl;
 
     // the data of the rectangle that a Gaussian will occupy
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
@@ -197,7 +198,6 @@ void Renderer::render(GLFWwindow* window) {
     camera.handleInput(window);
 
     glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
-
     // We aren't drawing anything, just computing
     glEnable(GL_RASTERIZER_DISCARD);
     glUseProgram(veryRealComputeProgram);
@@ -231,16 +231,16 @@ void Renderer::render(GLFWwindow* window) {
     // drawing into the small window happens here
     // we only have one VAO and one shader that are always binded
     // no need to rebind them on every draw call
-    if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
+    //if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
         glUseProgram(shaderProgram);
         camera.registerView(shaderProgram);
-        glDrawArrays(GL_TRIANGLES, 0, verticesCount);
-    } else {
-        glUseProgram(gaussRenProgram);
-        camera.registerView(gaussRenProgram);
-        camera.uploadIntrinsics(gaussRenProgram);
-        glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, verticesCount);
-    }
+        glDrawArrays(globalState.debugMode, 0, verticesCount);
+    //} else {
+    //    glUseProgram(gaussRenProgram);
+    //    camera.registerView(gaussRenProgram);
+    //    camera.uploadIntrinsics(gaussRenProgram);
+    //    glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, verticesCount);
+    //}
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     camera.updateView();

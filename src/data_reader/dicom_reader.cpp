@@ -22,7 +22,7 @@ static bool zAxisComparison(vega::dicom::File &f1, vega::dicom::File &f2) {
     auto f2_position_manipulator = getDataManipulator(f2, vega::dictionary::ImagePositionPatient);
     
     return static_cast<float>(f1_position_manipulator->begin()[2]) 
-        < static_cast<float>(f2_position_manipulator->begin()[2]);
+        > static_cast<float>(f2_position_manipulator->begin()[2]);
 }
 
 std::tuple<float*, int, int, int> DicomReader::readDirectory(const std::string& path) {

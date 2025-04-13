@@ -107,7 +107,7 @@ void Interface::setupRenderer() {
     TIME_SANDWICH_START(marching_cubes_time)
     std::vector<float> vertices;
     glm::vec3 centroid(0.0f);
-    marching_cubes(field, 1000, vertices, centroid);
+    marching_cubes(field, 660, vertices, centroid);
     std::cout << centroid.x << std::endl;
     TIME_SANDWICH_END(marching_cubes_time);
 
@@ -186,9 +186,11 @@ void Interface::startMainLoop() {
                     // Rendering mode selection
                     if (ImGui::BeginCombo("Render Mode", "select")) {
                         if (ImGui::Selectable("PCD"))
-                            globalState.renderingMode = GlobalState::RenderMode::PCD;
+                            globalState.debugMode = GL_POINTS;
+                            //globalState.renderingMode = GlobalState::RenderMode::PCD;
                         if (ImGui::Selectable("Splats"))
-                            globalState.renderingMode = GlobalState::RenderMode::Splats;
+                            //globalState.renderingMode = GlobalState::RenderMode::Splats;
+                            globalState.debugMode = GL_TRIANGLES;
                     
                         ImGui::EndCombo();
                     }

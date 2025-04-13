@@ -32,6 +32,7 @@ struct GlobalState {
     // write from GUI only
     RenderMode renderingMode = RenderMode::PCD;
     bool sortingEnabled = false;
+    GLuint debugMode = GL_TRIANGLES;
 };
 extern GlobalState globalState;
 

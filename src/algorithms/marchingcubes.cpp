@@ -8,18 +8,18 @@
 typedef std::tuple<int, int, int> vec3;
 
 static int edge_vertex_pairs[][6] = {
-    {0, 0, 1, 1, 0, 1},
-    {1, 0, 1, 1, 0, 0},
-    {0, 0, 0, 1, 0, 0},
-    {0, 0, 1, 0, 0, 0},
     {0, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 0},
+    {1, 1, 1, 1, 0, 1},
+    {0, 0, 1, 1, 0, 1},
+    {0, 1, 1, 0, 0, 1},
     {0, 1, 0, 1, 1, 0},
-    {0, 1, 1, 0, 1, 0},
-    {0, 0, 1, 0, 1, 1},
-    {1, 0, 1, 1, 1, 1},
+    {1, 1, 0, 1, 0, 0},
+    {1, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 1, 0},
-    {1, 0, 0, 1, 1, 0},
+    {0, 1, 0, 0, 1, 1},
+    {1, 1, 1, 1, 1, 0},
+    {1, 0, 1, 1, 0, 0},
+    {0, 0, 0, 0, 0, 1},
 };
 
 inline int8_t* get_triangulations(vec3 pos, int width, int length, int height, float threshold, float* buffer) {
@@ -27,54 +27,52 @@ inline int8_t* get_triangulations(vec3 pos, int width, int length, int height, f
     const int sliceArea = width * length;
 
     uint8_t index = 0;
-    index |= buffer[x + y * width + (z + 1) * sliceArea] > threshold;
-    index |= (buffer[(x + 1) + y * width + (z + 1) * sliceArea] > threshold) << 1;
-    index |= (buffer[(x + 1) + y * width + z * sliceArea] > threshold) << 2;
-    index |= (buffer[x + y * width + z * sliceArea] > threshold) << 3;
-    index |= (buffer[x + (y + 1) * width + (z + 1) * sliceArea] > threshold) << 4;
-    index |= (buffer[(x + 1) + (y + 1) * width + (z + 1) * sliceArea] > threshold) << 5;
-    index |= (buffer[(x + 1) + (y + 1) * width + z * sliceArea] > threshold) << 6;
-    index |= (buffer[x + (y + 1) * width + z * sliceArea] > threshold) << 7;
+    index |= buffer[x + (y + 1) * width + (z + 1)* sliceArea] > threshold;
+    index |= (buffer[(x + 1) + (y + 1) * width + (z + 1) * sliceArea] > threshold) << 1;
+    index |= (buffer[(x + 1) + y * width + (z + 1) * sliceArea] > threshold) << 2;
+    index |= (buffer[x + y * width + (z + 1) * sliceArea] > threshold) << 3;
+    index |= (buffer[x + (y + 1) * width + z * sliceArea] > threshold) << 4;
+    index |= (buffer[(x + 1) + (y + 1) * width + z * sliceArea] > threshold) << 5;
+    index |= (buffer[(x + 1) + y * width + z * sliceArea] > threshold) << 6;
+    index |= (buffer[x + y * width + z * sliceArea] > threshold) << 7;
 
     return triangle_table[index];
 }
 
 void marching_cubes(DensityField& field, float threshold, std::vector<float>& vertices, glm::vec3& centroid) {
-    const int area = field.width * field.height;
+    const int area = field.width * field.length;
 
     // This should be parallelized
-    for (int z = 0; z < field.height - 1; z++) {
-        for (int y = 0; y < field.length - 1; y++) {
-            for (int x = 0; x < field.width - 1; x++) {
+    for (int z = 0; z < field.height - 1; z += 1) {
+        for (int y = 0; y < field.length - 1; y += 1) {
+            for (int x = 0; x < field.width - 1; x += 1) {
                 int8_t* edges = get_triangulations(
                     std::make_tuple(x, y, z), field.width, field.length,
                     field.height, threshold, field.buffer
                 );
 
 
-                for (int i = 0; i < 8; i++) {
+                for (int i = 0; i < 16; i ++) {     
                     const int8_t edge = edges[i];
                     if (edge == -1) break;
-                    
                     const float x_val = (x + edge_vertex_pairs[edge][0] + x + edge_vertex_pairs[edge][3]) * 0.5f;
                     const float y_val = (y + edge_vertex_pairs[edge][1] + y + edge_vertex_pairs[edge][4]) * 0.5f;
                     const float z_val = (z + edge_vertex_pairs[edge][2] + z + edge_vertex_pairs[edge][5]) * 0.5f;
+                    vertices.push_back(( x_val - field.width )/ field.width);
+                    vertices.push_back((y_val - field.length) / (field.length));
+                    vertices.push_back((z_val - field.height)/ (field.height));
 
-                    vertices.push_back(x_val / 800);
-                    vertices.push_back(y_val / 800);
-                    vertices.push_back(z_val / 800);
-
-                    centroid.x += x_val / 800;
-                    centroid.y += y_val / 800;
-                    centroid.z += z_val / 800;
+                    centroid.x += (x_val - field.width )/ field.width;
+                    centroid.y += (y_val - field.length) / field.length;
+                    centroid.z += (z_val - field.height)/ field.height;
 
                     // THe worst way to calculate normals
-                    float dx = field.buffer[(int)(x_val - 0.5f) + (int)y_val * field.width + (int)z_val * area]
-                     - field.buffer[(int)(x_val + 0.5f) + (int)y_val * field.width + (int)z_val * area];
-                    float dy = field.buffer[(int)x_val + (int)(y_val - 0.5f) * field.width + (int)z_val * area]
-                     - field.buffer[(int)x_val + (int)(y_val + 0.5f) * field.width + (int)z_val * area];
-                    float dz = field.buffer[(int)x_val + (int)y_val * field.width + (int)(z_val - 0.5f) * area]
-                     - field.buffer[(int)x_val + (int)y_val * field.width + (int)(z_val + 0.5f) * area];
+                    float dx = (field.buffer[(int)(x - 0.5f) + (int)y * field.width + (int)z * area]
+                     - field.buffer[(int)(x + 0.5f) + (int)y * field.width + (int)z * area]) * 0.5f;
+                    float dy = (field.buffer[(int)x + (int)(y - 0.5f) * field.width + (int)z * area]
+                     - field.buffer[(int)x + (int)(y + 0.5f) * field.width + (int)z * area]) * 0.5f;
+                    float dz = (field.buffer[(int)x + (int)y * field.width + (int)(z - 0.5f) * area]
+                     - field.buffer[(int)x + (int)y * field.width + (int)(z + 0.5f) * area]) * 0.5f;
 
                     vertices.push_back(dx);
                     vertices.push_back(dy);
@@ -83,9 +81,11 @@ void marching_cubes(DensityField& field, float threshold, std::vector<float>& ve
             }
         }
     }
-
-    centroid /= (vertices.size() / 2);
+    std::cout << vertices.size() << std::endl;
+    centroid /= (vertices.size() / 6);
+    centroid += 0.3f;
 }
+
 
 int8_t triangle_table[256][16] =
 {

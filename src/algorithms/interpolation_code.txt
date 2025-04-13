@@ -1,0 +1,55 @@
+     
+                    const int8_t edge = edges[i];
+                    if (edge == -1) break;
+                    glm::vec3 p1(
+                        x + edge_vertex_pairs[edge][0], y + edge_vertex_pairs[edge][1], z + edge_vertex_pairs[edge][2]
+                    );
+                    glm::vec3 p2(
+                        x + edge_vertex_pairs[edge][3], y + edge_vertex_pairs[edge][4], z + edge_vertex_pairs[edge][5]
+                    );
+                    const int p2_val = field.buffer[(int)(p1.x + p1.y * field.width + p1.z * area)];
+                    const int p1_val = field.buffer[(int)(p2.x + p2.y * field.width + p2.z * area)];
+
+                    if (std::abs(threshold - p1_val) < 0.00001) {
+                        vertices.push_back(p1.x/ (field.width + 10));
+                        vertices.push_back(p1.y / (field.length + 10));
+                        vertices.push_back(p1.z / (field.height + 10));
+                        continue;
+                    }
+                    if (std::abs(threshold - p2_val) < 0.00001) {
+                        vertices.push_back(p2.x/ (field.width + 10));
+                        vertices.push_back(p2.y / (field.length + 10));
+                        vertices.push_back(p2.z / (field.height + 10));
+                        continue;
+                    }
+                    if (std::abs(p1_val - p2_val) < 0.00001) {
+                        vertices.push_back(p1.x/ (field.width + 10));
+                        vertices.push_back(p1.y / (field.length + 10));
+                        vertices.push_back(p1.z / (field.height + 10));
+                        continue;
+                    }
+
+                    const float fake_Mu = (threshold - p1_val) / (p2_val - p1_val);
+
+                    glm::vec3 interpolated_p = p1 + fake_Mu * (p2 - p1);
+                    std::cout << "X1: " << p1.x << "X2: " << p2.x << "After interpolation: " << interpolated_p.x << std::endl;
+
+                    vertices.push_back(interpolated_p.x/ (field.width + 10));
+                    vertices.push_back(interpolated_p.y / (field.length + 10));
+                    vertices.push_back(interpolated_p.z / (field.height + 10));
+
+                    centroid.x += interpolated_p.x / (field.width);
+                    centroid.y += interpolated_p.y / field.length;
+                    centroid.z -= interpolated_p.z / field.height;
+
+                    // THe worst way to calculate normals
+                    float dx = (field.buffer[(int)(x - 0.5f) + (int)y * field.width + (int)z * area]
+                     - field.buffer[(int)(x + 0.5f) + (int)y * field.width + (int)z * area]) * 0.5f;
+                    float dy = (field.buffer[(int)x + (int)(y - 0.5f) * field.width + (int)z * area]
+                     - field.buffer[(int)x + (int)(y + 0.5f) * field.width + (int)z * area]) * 0.5f;
+                    float dz = (field.buffer[(int)x + (int)y * field.width + (int)(z - 0.5f) * area]
+                     - field.buffer[(int)x + (int)y * field.width + (int)(z + 0.5f) * area]) * 0.5f;
+
+                    vertices.push_back(dx);
+                    vertices.push_back(dy);
+                    vertices.push_back(dz);
