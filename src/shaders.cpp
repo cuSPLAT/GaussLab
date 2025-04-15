@@ -19,7 +19,7 @@ const char* Shaders::vertexShader = R"(
     void main() {
         gl_Position = projection * view * vec4(aPos, 1.0f);
         FragPos = vec3(view * vec4(aPos, 1.0f));
-        vertexColor = vec3(0.6, 0.6, 0.6);
+        vertexColor = vec3(0.89f, 0.85f, 0.788f);
         Normal = normalize(aNormal);
     }
 )";

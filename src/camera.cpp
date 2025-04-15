@@ -23,7 +23,7 @@ Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) 
     yaw = -90.0f, pitch = 0.0f;
 
     // This is just a matrix to test with
-    projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+    projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.03f, 100.0f);
 
     posVector = new GLfloat[16];
 }
@@ -113,7 +113,7 @@ void Camera::calculateZoom(double yoffset) {
     if (fov > 89.0f)
         fov = 89.0f; 
     
-    projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.1f, 100.0f);
+    projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.01f, 100.0f);
 }
 
 void Camera::uploadIntrinsics(GLuint program) {

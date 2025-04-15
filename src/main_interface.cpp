@@ -107,7 +107,7 @@ void Interface::setupRenderer() {
     TIME_SANDWICH_START(marching_cubes_time)
     std::vector<float> vertices;
     glm::vec3 centroid(0.0f);
-    marching_cubes(field, 660, vertices, centroid);
+    marching_cubes(field, 660, vertices, centroid, 1);
     std::cout << centroid.x << std::endl;
     TIME_SANDWICH_END(marching_cubes_time);
 

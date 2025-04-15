@@ -22,49 +22,114 @@ static int edge_vertex_pairs[][6] = {
     {0, 0, 0, 0, 0, 1},
 };
 
-inline int8_t* get_triangulations(vec3 pos, int width, int length, int height, float threshold, float* buffer) {
+inline int8_t* get_triangulations(
+    vec3 pos, int width, int length, int height, float threshold, float* buffer, int step
+) {
     const auto [x, y, z] = pos;
     const int sliceArea = width * length;
 
     uint8_t index = 0;
-    index |= buffer[x + (y + 1) * width + (z + 1)* sliceArea] > threshold;
-    index |= (buffer[(x + 1) + (y + 1) * width + (z + 1) * sliceArea] > threshold) << 1;
-    index |= (buffer[(x + 1) + y * width + (z + 1) * sliceArea] > threshold) << 2;
-    index |= (buffer[x + y * width + (z + 1) * sliceArea] > threshold) << 3;
-    index |= (buffer[x + (y + 1) * width + z * sliceArea] > threshold) << 4;
-    index |= (buffer[(x + 1) + (y + 1) * width + z * sliceArea] > threshold) << 5;
-    index |= (buffer[(x + 1) + y * width + z * sliceArea] > threshold) << 6;
+    index |= buffer[x + (y + step) * width + (z + step)* sliceArea] > threshold;
+    index |= (buffer[(x + step) + (y + step) * width + (z + step) * sliceArea] > threshold) << 1;
+    index |= (buffer[(x + step) + y * width + (z + step) * sliceArea] > threshold) << 2;
+    index |= (buffer[x + y * width + (z + step) * sliceArea] > threshold) << 3;
+    index |= (buffer[x + (y + step) * width + z * sliceArea] > threshold) << 4;
+    index |= (buffer[(x + step) + (y + step) * width + z * sliceArea] > threshold) << 5;
+    index |= (buffer[(x + step) + y * width + z * sliceArea] > threshold) << 6;
     index |= (buffer[x + y * width + z * sliceArea] > threshold) << 7;
 
     return triangle_table[index];
 }
 
-void marching_cubes(DensityField& field, float threshold, std::vector<float>& vertices, glm::vec3& centroid) {
+void marching_cubes(
+    DensityField& field, float threshold, std::vector<float>& vertices, glm::vec3& centroid, int step
+) {
     const int area = field.width * field.length;
 
     // This should be parallelized
-    for (int z = 0; z < field.height - 1; z += 1) {
-        for (int y = 0; y < field.length - 1; y += 1) {
-            for (int x = 0; x < field.width - 1; x += 1) {
+    for (int z = 0; z < field.height - step; z += step) {
+        for (int y = 0; y < field.length - step; y += step) {
+            for (int x = 0; x < field.width - step; x += step) {
                 int8_t* edges = get_triangulations(
                     std::make_tuple(x, y, z), field.width, field.length,
-                    field.height, threshold, field.buffer
+                    field.height, threshold, field.buffer, step
                 );
-
 
                 for (int i = 0; i < 16; i ++) {     
                     const int8_t edge = edges[i];
                     if (edge == -1) break;
-                    const float x_val = (x + edge_vertex_pairs[edge][0] + x + edge_vertex_pairs[edge][3]) * 0.5f;
-                    const float y_val = (y + edge_vertex_pairs[edge][1] + y + edge_vertex_pairs[edge][4]) * 0.5f;
-                    const float z_val = (z + edge_vertex_pairs[edge][2] + z + edge_vertex_pairs[edge][5]) * 0.5f;
-                    vertices.push_back(( x_val - field.width )/ field.width);
-                    vertices.push_back((y_val - field.length) / (field.length));
-                    vertices.push_back((z_val - field.height)/ (field.height));
+                    glm::vec3 p1(
+                        x + edge_vertex_pairs[edge][0] * step,
+                        y + edge_vertex_pairs[edge][1] * step,
+                        z + edge_vertex_pairs[edge][2] * step
+                    );
+                    glm::vec3 p2(
+                        x + edge_vertex_pairs[edge][3] * step,
+                        y + edge_vertex_pairs[edge][4] * step,
+                        z + edge_vertex_pairs[edge][5] * step
+                    );
+                    const int p2_val = field.buffer[(int)p2.x + (int)p2.y * field.width + (int)p2.z * area];
+                    const int p1_val = field.buffer[(int)p1.x + (int)p1.y * field.width + (int)p1.z * area];
 
-                    centroid.x += (x_val - field.width )/ field.width;
-                    centroid.y += (y_val - field.length) / field.length;
-                    centroid.z += (z_val - field.height)/ field.height;
+                    if (std::abs(threshold - p1_val) < 0.00001) {
+                        vertices.push_back((p1.x - field.width) / field.width);
+                        vertices.push_back(-(p1.z - field.height) / field.height);
+                        vertices.push_back(-(p1.y - field.length) / field.length);
+                        float dx = (field.buffer[(int)(x - 0.5f) + (int)y * field.width + (int)z * area]
+                         - field.buffer[(int)(x + 0.5f) + (int)y * field.width + (int)z * area]) * 0.5f;
+                        float dy = (field.buffer[(int)x + (int)(y - 0.5f) * field.width + (int)z * area]
+                         - field.buffer[(int)x + (int)(y + 0.5f) * field.width + (int)z * area]) * 0.5f;
+                        float dz = (field.buffer[(int)x + (int)y * field.width + (int)(z - 0.5f) * area]
+                         - field.buffer[(int)x + (int)y * field.width + (int)(z + 0.5f) * area]) * 0.5f;
+
+                        vertices.push_back(dx);
+                        vertices.push_back(dy);
+                        vertices.push_back(dz);                
+                        continue;
+                    }
+                    if (std::abs(threshold - p2_val) < 0.00001) {
+                        vertices.push_back((p2.x - field.width) / field.width);
+                        vertices.push_back(-(p2.z - field.height) / field.height);
+                        vertices.push_back(-(p2.y - field.length) / field.length);
+                        float dx = (field.buffer[(int)(x - 0.5f) + (int)y * field.width + (int)z * area]
+                         - field.buffer[(int)(x + 0.5f) + (int)y * field.width + (int)z * area]) * 0.5f;
+                        float dy = (field.buffer[(int)x + (int)(y - 0.5f) * field.width + (int)z * area]
+                         - field.buffer[(int)x + (int)(y + 0.5f) * field.width + (int)z * area]) * 0.5f;
+                        float dz = (field.buffer[(int)x + (int)y * field.width + (int)(z - 0.5f) * area]
+                         - field.buffer[(int)x + (int)y * field.width + (int)(z + 0.5f) * area]) * 0.5f;
+
+                        vertices.push_back(dx);
+                        vertices.push_back(dy);
+                        vertices.push_back(dz);                
+                        continue;
+                    }
+                    if (std::abs(p1_val - p2_val) < 0.00001) {
+                        vertices.push_back((p1.x - field.width) / field.width);
+                        vertices.push_back(-(p1.z - field.height) / field.height);
+                        vertices.push_back(-(p1.y - field.length) / field.length);
+                        float dx = (field.buffer[(int)(x - 0.5f) + (int)y * field.width + (int)z * area]
+                         - field.buffer[(int)(x + 0.5f) + (int)y * field.width + (int)z * area]) * 0.5f;
+                        float dy = (field.buffer[(int)x + (int)(y - 0.5f) * field.width + (int)z * area]
+                         - field.buffer[(int)x + (int)(y + 0.5f) * field.width + (int)z * area]) * 0.5f;
+                        float dz = (field.buffer[(int)x + (int)y * field.width + (int)(z - 0.5f) * area]
+                         - field.buffer[(int)x + (int)y * field.width + (int)(z + 0.5f) * area]) * 0.5f;
+
+                        vertices.push_back(dx);
+                        vertices.push_back(dy);
+                        vertices.push_back(dz);                
+                        continue;
+                    }
+
+
+                    const float fake_Mu = (threshold - p1_val) / (p2_val - p1_val);
+                    glm::vec3 interpolated_p = p1 + fake_Mu * (p2 - p1);
+                    vertices.push_back((interpolated_p.x - field.width) / field.width);
+                    vertices.push_back(-(interpolated_p.z - field.height) / field.height);
+                    vertices.push_back(-(interpolated_p.y - field.length) / field.length);
+
+                    centroid.x += (interpolated_p.x - field.width) / field.width;
+                    centroid.z -= (interpolated_p.y - field.length) / field.length;
+                    centroid.y -= (interpolated_p.z - field.height) / field.height;
 
                     // THe worst way to calculate normals
                     float dx = (field.buffer[(int)(x - 0.5f) + (int)y * field.width + (int)z * area]
@@ -76,14 +141,12 @@ void marching_cubes(DensityField& field, float threshold, std::vector<float>& ve
 
                     vertices.push_back(dx);
                     vertices.push_back(dy);
-                    vertices.push_back(dz);
+                    vertices.push_back(dz);                
                 }
             }
         }
     }
-    std::cout << vertices.size() << std::endl;
     centroid /= (vertices.size() / 6);
-    centroid += 0.3f;
 }
 
 

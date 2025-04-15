@@ -10,6 +10,8 @@ struct DensityField {
     int volume;
 };
 
-void marching_cubes(DensityField& field, float threshold, std::vector<float>& vertices, glm::vec3& centroid);
+void marching_cubes(
+    DensityField& field, float threshold, std::vector<float>& vertices, glm::vec3& centroid, int step
+);
 
 extern int8_t triangle_table[256][16];
