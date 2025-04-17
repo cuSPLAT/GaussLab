@@ -185,6 +185,7 @@ void Renderer::constructScene(Scene* scene, std::vector<float>& vertices) {
     glBufferData(GL_SHADER_STORAGE_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
 
+    glEnable(GL_DEPTH_TEST);
     //TODO: understand this
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -227,7 +228,7 @@ void Renderer::render(GLFWwindow* window) {
     }
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // drawing into the small window happens here
     // we only have one VAO and one shader that are always binded
     // no need to rebind them on every draw call
