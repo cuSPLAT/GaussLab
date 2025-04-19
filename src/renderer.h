@@ -1,8 +1,10 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
+#include <cstdint>
 #include <imgui.h>
 #include <memory>
+#include <atomic>
 #define GLFW_INCLUDE_NONE
 
 #include <GLFW/glfw3.h>

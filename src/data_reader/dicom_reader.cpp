@@ -7,6 +7,9 @@
 #include <torch/types.h>
 #include <tuple>
 
+#include "../renderer.h"
+#include "../debug_utils.h"
+
 namespace fs = std::filesystem;
 
 DicomReader::DicomReader(const std::string& dictionary) {
@@ -25,10 +28,11 @@ static bool zAxisComparison(vega::dicom::File &f1, vega::dicom::File &f2) {
         > static_cast<float>(f2_position_manipulator->begin()[2]);
 }
 
-std::tuple<float*, int, int, int> DicomReader::readDirectory(const std::string& path) {
+void DicomReader::readDirectory(const std::string& path) {
     for (const auto &entry: fs::directory_iterator(path)) {
         dicomFiles.emplace_back(entry.path().string());
     }
+    totalSize = dicomFiles.size();
     std::sort(dicomFiles.begin(), dicomFiles.end(), zAxisComparison);
     
     // How many bits are allocated for a single pixel
@@ -56,6 +60,9 @@ std::tuple<float*, int, int, int> DicomReader::readDirectory(const std::string& 
             for (auto it = pixel_data->begin(); it != pixel_data->end(); it++) {
                 volume[index] = it->u * slope + intercept;
                 index++;
+
+                if (index % (width * height) == 0)
+                    loadingProgress++;
             }
         }
 
@@ -71,5 +78,27 @@ std::tuple<float*, int, int, int> DicomReader::readDirectory(const std::string& 
         // a single image
     }
 
-    return std::make_tuple(volume, width, height, dicomFiles.size());
+    loadedData.buffer = volume;
+    loadedData.width = width;
+    loadedData.length = length;
+    loadedData.height = dicomFiles.size();
+
+    // maybe later it is better to notify a thread
+    loadedData.readable.test_and_set();
+}
+
+// A wrapper for starting the reader from another thread
+void DicomReader::launchReaderThread(const std::string& path) {
+    std::thread thread([path, this]() {
+        std::cout << path << std::endl;
+        readDirectory(path);
+    });
+    threads.push_back(std::move(thread));
+}
+
+void DicomReader::cleanupThreads() {
+    LOG("Cleaning running threads")
+
+    for (auto& thread : threads)
+        thread.join();
 }

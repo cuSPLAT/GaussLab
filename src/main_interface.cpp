@@ -6,6 +6,7 @@
 #include "scene_loader.h"
 #include "callbacks.h"
 
+#include <cstddef>
 #include <iostream>
 
 #include <glad/glad.h>
@@ -17,7 +18,6 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui.h>
-#include <vector>
 
 Interface::Interface() = default;
 
@@ -100,24 +100,21 @@ std::string Interface::openFileDialog() {
 void Interface::setupRenderer() {
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
+    
+    //TIME_SANDWICH_START(marching_cubes_time)
+    //std::vector<float> vertices;
+    //glm::vec3 centroid(0.0f);
+    //marching_cubes(field, 660, vertices, centroid, 2);
+    //std::cout << centroid.x << std::endl;
+    //TIME_SANDWICH_END(marching_cubes_time);
 
-    auto [buffer, width, length, height] = dcmReader.readDirectory("/home/Abdelrahman/Downloads/DicomData/Data/Study/CT-2");
-    DensityField field(buffer, width, length, height, 0); 
-
-    TIME_SANDWICH_START(marching_cubes_time)
-    std::vector<float> vertices;
-    glm::vec3 centroid(0.0f);
-    marching_cubes(field, 660, vertices, centroid, 1);
-    std::cout << centroid.x << std::endl;
-    TIME_SANDWICH_END(marching_cubes_time);
-
-    Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/christmas_tree.ply");
-    pcd->centroid = centroid;
-    renderer->constructScene(pcd, vertices);
+    //Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/christmas_tree.ply");
+    //pcd->centroid = centroid;
+    //renderer->constructScene(pcd, vertices);
 
 
-    delete[] buffer;
-    delete pcd;
+    //delete[] buffer;
+    //delete pcd;
 }
 
 void Interface::createViewWindow() {
@@ -203,6 +200,7 @@ void Interface::startMainLoop() {
         }
         ImGui::End();
 
+        
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -211,9 +209,14 @@ void Interface::startMainLoop() {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    dcmReader.cleanupThreads();
 }
 
 void Interface::createMenuBar() {
+    // ok maybe this should me moved I don't know
+    static bool launchPopup = false;
+
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open PLY file")) {
@@ -224,9 +227,35 @@ void Interface::createMenuBar() {
                 //renderer->constructScene(pcd);
                 delete pcd;
             }
+            if (ImGui::MenuItem("Load DICOM Directory")) {
+                // ------------------ Folder select ----------------
+                nfdu8char_t* path;
+                nfdresult_t result = NFD_PickFolderU8(&path, nullptr);
+
+                std::string dir_path(path);
+                NFD_FreePathU8(path);
+                dcmReader.launchReaderThread(dir_path);
+                launchPopup = true;
+                // ------------------------------------------------
+            }
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
+    }
+
+    if (launchPopup)
+        ImGui::OpenPopup("dicom_loading");
+
+    if (ImGui::BeginPopupModal("dicom_loading")) {
+        ImGui::Text("Loading Dicoms");
+        ImGui::ProgressBar((float)dcmReader.loadingProgress/dcmReader.totalSize);
+
+        if (dcmReader.loadingProgress == dcmReader.totalSize && launchPopup) {
+            launchPopup = false;
+            dcmReader.loadingProgress = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
     }
 }
 

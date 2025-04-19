@@ -233,9 +233,9 @@ void Renderer::render(GLFWwindow* window) {
     // we only have one VAO and one shader that are always binded
     // no need to rebind them on every draw call
     //if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
-        glUseProgram(shaderProgram);
-        camera.registerView(shaderProgram);
-        glDrawArrays(globalState.debugMode, 0, verticesCount);
+        //glUseProgram(shaderProgram);
+        //camera.registerView(shaderProgram);
+        //glDrawArrays(globalState.debugMode, 0, verticesCount);
     //} else {
     //    glUseProgram(gaussRenProgram);
     //    camera.registerView(gaussRenProgram);

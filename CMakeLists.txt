@@ -16,6 +16,8 @@ find_package(OpenGL REQUIRED)
 find_package(Torch REQUIRED)
 find_package(glfw3 3.4 REQUIRED)
 find_package(glm REQUIRED)
+find_package(Threads REQUIRED)
+
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
@@ -51,6 +53,7 @@ add_executable(
 )
 target_include_directories(GausStudio PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 target_link_libraries(GausStudio "${TORCH_LIBRARIES}")
+target_link_libraries(GausStudio Threads::Threads)
 
 # 7.5 is for turing architecture (GTX16)
 # 8.6 is for ampere (RTX)
