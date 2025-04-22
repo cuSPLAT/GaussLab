@@ -5,12 +5,12 @@
 #include <imgui.h>
 #include <memory>
 #include <atomic>
+#include <vector>
 #define GLFW_INCLUDE_NONE
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
 
-#include <RadixSort.hpp>
 #include <cuda_gl_interop.h>
 
 #include "camera.h"

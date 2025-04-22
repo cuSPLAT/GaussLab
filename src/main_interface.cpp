@@ -7,6 +7,7 @@
 #include "callbacks.h"
 
 #include <cstddef>
+#include <glm/fwd.hpp>
 #include <iostream>
 
 #include <glad/glad.h>
@@ -100,20 +101,11 @@ std::string Interface::openFileDialog() {
 void Interface::setupRenderer() {
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
-    
-    //TIME_SANDWICH_START(marching_cubes_time)
-    //std::vector<float> vertices;
-    //glm::vec3 centroid(0.0f);
-    //marching_cubes(field, 660, vertices, centroid, 2);
-    //std::cout << centroid.x << std::endl;
-    //TIME_SANDWICH_END(marching_cubes_time);
 
     //Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/christmas_tree.ply");
     //pcd->centroid = centroid;
     //renderer->constructScene(pcd, vertices);
-
-
-    //delete[] buffer;
+    
     //delete pcd;
 }
 
@@ -140,6 +132,7 @@ Interface::~Interface() {
 
 void Interface::startMainLoop() {
     static int primtiveStepCount = 1000;
+    static glm::vec3 centroid; // a temporary
 
     while (!glfwWindowShouldClose(window)) {
         // Start ImGui frame
@@ -193,6 +186,26 @@ void Interface::startMainLoop() {
                     }
                     // ---------------------------------------------------
                     ImGui::Checkbox("Sorting", &globalState.sortingEnabled);
+                    // --------------------- Marching Cubes -----------------
+                    if(ImGui::Button("March")) {
+                        if (dcmReader.loadedData.readable.test()) {
+                            DicomReader::DicomData& data = dcmReader.loadedData;
+                            MarchingCubes::launchThreaded(
+                                data.buffer,
+                                data.width, data.length, data.height,
+                                660, centroid,
+                                1, 4
+                            );
+                        }
+                    }
+
+                    if (MarchingCubes::marched.test()) {
+                        MarchingCubes::marched.clear();
+                        Scene scene;
+                        renderer->constructScene(&scene, MarchingCubes::OutputVertices);
+                        delete[] dcmReader.loadedData.buffer;
+                    }
+                    // ------------------------------------------------------
                     ImGui::EndTabItem();
                 }
             }
@@ -211,6 +224,7 @@ void Interface::startMainLoop() {
     }
 
     dcmReader.cleanupThreads();
+    MarchingCubes::cleanUp();
 }
 
 void Interface::createMenuBar() {

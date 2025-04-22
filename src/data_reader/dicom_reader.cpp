@@ -80,7 +80,7 @@ void DicomReader::readDirectory(const std::string& path) {
 
     loadedData.buffer = volume;
     loadedData.width = width;
-    loadedData.length = length;
+    loadedData.length = height;
     loadedData.height = dicomFiles.size();
 
     // maybe later it is better to notify a thread
@@ -90,14 +90,13 @@ void DicomReader::readDirectory(const std::string& path) {
 // A wrapper for starting the reader from another thread
 void DicomReader::launchReaderThread(const std::string& path) {
     std::thread thread([path, this]() {
-        std::cout << path << std::endl;
         readDirectory(path);
     });
     threads.push_back(std::move(thread));
 }
 
 void DicomReader::cleanupThreads() {
-    LOG("Cleaning running threads")
+    LOG("Cleaning running threads for DICOM Loading")
 
     for (auto& thread : threads)
         thread.join();
