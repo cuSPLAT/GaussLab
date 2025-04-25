@@ -12,7 +12,7 @@ const char* Shaders::vertexShader = R"(
     out vec3 Normal;
     out vec3 FragPos;
     out vec3 vertexColor;
-
+    
     uniform mat4 view;
     uniform mat4 projection;
 

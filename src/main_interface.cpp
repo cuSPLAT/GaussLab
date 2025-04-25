@@ -6,7 +6,9 @@
 #include "scene_loader.h"
 #include "callbacks.h"
 
+#include <chrono>
 #include <cstddef>
+#include <fstream>
 #include <glm/fwd.hpp>
 #include <iostream>
 
@@ -132,6 +134,9 @@ Interface::~Interface() {
 
 void Interface::startMainLoop() {
     static int primtiveStepCount = 1000;
+    static const int allowed_threads[] = {1, 2, 4};
+    static int selected_index = 0;
+    static int n_threads = 1;
     static glm::vec3 centroid; // a temporary
 
     while (!glfwWindowShouldClose(window)) {
@@ -187,14 +192,18 @@ void Interface::startMainLoop() {
                     // ---------------------------------------------------
                     ImGui::Checkbox("Sorting", &globalState.sortingEnabled);
                     // --------------------- Marching Cubes -----------------
+                    if (ImGui::SliderInt("Threads", &selected_index, 0, 2, ""))
+                        n_threads = allowed_threads[selected_index];
+                    ImGui::SameLine();
+                    ImGui::Text("%d", allowed_threads[selected_index]);
                     if(ImGui::Button("March")) {
                         if (dcmReader.loadedData.readable.test()) {
                             DicomReader::DicomData& data = dcmReader.loadedData;
                             MarchingCubes::launchThreaded(
-                                data.buffer,
+                                data.buffer.get(),
                                 data.width, data.length, data.height,
                                 660, centroid,
-                                1, 4
+                                1, n_threads
                             );
                         }
                     }
@@ -203,7 +212,6 @@ void Interface::startMainLoop() {
                         MarchingCubes::marched.clear();
                         Scene scene;
                         renderer->constructScene(&scene, MarchingCubes::OutputVertices);
-                        delete[] dcmReader.loadedData.buffer;
                     }
                     // ------------------------------------------------------
                     ImGui::EndTabItem();

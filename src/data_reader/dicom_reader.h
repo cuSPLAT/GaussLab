@@ -20,7 +20,7 @@ public:
     std::atomic<std::uint64_t> totalSize {10000000};
 
     struct DicomData {
-        float* buffer;
+        std::unique_ptr<float[]> buffer;
         int width, length, height;
 
         std::atomic_flag readable {};

@@ -9,9 +9,9 @@
 #include <thread>
 #include <tuple>
 
-typedef std::tuple<int, int, int> vec3;
+typedef std::tuple<int, int, int> vec3; //  will be removed
 
-std::vector<float> MarchingCubes::OutputVertices;
+std::vector<Vertex> MarchingCubes::OutputVertices;
 std::vector<std::thread> MarchingCubes::threads;
 
 std::atomic_flag MarchingCubes::marched;
@@ -20,16 +20,16 @@ std::mutex MarchingCubes::OutVerticesMutex;
 
 static int edge_vertex_pairs[][6] = {
     {0, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 0, 1},
+    {1, 0, 1, 1, 1, 1},
     {0, 0, 1, 1, 0, 1},
-    {0, 1, 1, 0, 0, 1},
+    {0, 0, 1, 0, 1, 1},
     {0, 1, 0, 1, 1, 0},
-    {1, 1, 0, 1, 0, 0},
-    {1, 0, 0, 0, 0, 0},
+    {1, 0, 0, 1, 1, 0},
+    {0, 0, 0, 1, 0, 0},
     {0, 0, 0, 0, 1, 0},
     {0, 1, 0, 0, 1, 1},
-    {1, 1, 1, 1, 1, 0},
-    {1, 0, 1, 1, 0, 0},
+    {1, 1, 0, 1, 1, 1},
+    {1, 0, 0, 1, 0, 1},
     {0, 0, 0, 0, 0, 1},
 };
 
@@ -60,11 +60,9 @@ void MarchingCubes::marching_cubes(
     const int thread_stride = height / n_threads + 1;
     const int start_z = thread_idx * thread_stride;
 
-    std::vector<float> TemporaryBuffer;
+    std::vector<Vertex> TemporaryBuffer;
 
-    for (int z = start_z; z < start_z + thread_stride; z += step) {
-        if (z >= (height - step - 1)) break;
-
+    for (int z = start_z; z < start_z + thread_stride && z < height - step; z += step) {
         for (int y = 0; y < length - step; y += step) {
             for (int x = 0; x < width - step; x += step) {
 
@@ -84,77 +82,29 @@ void MarchingCubes::marching_cubes(
                     glm::vec3 p2(
                         x + edge_vertex_pairs[edge][3] * step,
                         y + edge_vertex_pairs[edge][4] * step,
-                        z + edge_vertex_pairs[edge][5] * step
+                        z + edge_vertex_pairs[edge][5] * step // maybe here - shouldn't be, except if step is changing
                     );
                     const int p2_val = buffer[(int)p2.x + (int)p2.y * width + (int)p2.z * area];
                     const int p1_val = buffer[(int)p1.x + (int)p1.y * width + (int)p1.z * area];
 
-                    if (std::abs(threshold - p1_val) < 0.00001) {
-                        float dx = (buffer[(int)(x - 0.5f) + (int)y * width + (int)z * area]
-                         - buffer[(int)(x + 0.5f) + (int)y * width + (int)z * area]) * 0.5f;
-                        float dy = (buffer[(int)x + (int)(y - 0.5f) * width + (int)z * area]
-                         - buffer[(int)x + (int)(y + 0.5f) * width + (int)z * area]) * 0.5f;
-                        float dz = (buffer[(int)x + (int)y * width + (int)(z - 0.5f) * area]
-                         - buffer[(int)x + (int)y * width + (int)(z + 0.5f) * area]) * 0.5f;
-                        TemporaryBuffer.push_back((p1.x - width) / width);
-                        TemporaryBuffer.push_back(-(p1.z - height) / height);
-                        TemporaryBuffer.push_back(-(p1.y - length) / length);
+                    float fake_Mu = (threshold - p1_val) / (p2_val - p1_val);
+                    fake_Mu = glm::max(0.f, glm::min(fake_Mu, 1.f));
 
-                        TemporaryBuffer.push_back(dx);
-                        TemporaryBuffer.push_back(dy);
-                        TemporaryBuffer.push_back(dz);            
-                        continue;
-                    }
-                    if (std::abs(threshold - p2_val) < 0.00001) {
-                        float dx = (buffer[(int)(x - 0.5f) + (int)y * width + (int)z * area]
-                         - buffer[(int)(x + 0.5f) + (int)y * width + (int)z * area]) * 0.5f;
-                        float dy = (buffer[(int)x + (int)(y - 0.5f) * width + (int)z * area]
-                         - buffer[(int)x + (int)(y + 0.5f) * width + (int)z * area]) * 0.5f;
-                        float dz = (buffer[(int)x + (int)y * width + (int)(z - 0.5f) * area]
-                         - buffer[(int)x + (int)y * width + (int)(z + 0.5f) * area]) * 0.5f;
-                        TemporaryBuffer.push_back((p2.x - width) / width);
-                        TemporaryBuffer.push_back(-(p2.z - height) / height);
-                        TemporaryBuffer.push_back(-(p2.y - length) / length);
-
-                        TemporaryBuffer.push_back(dx);
-                        TemporaryBuffer.push_back(dy);
-                        TemporaryBuffer.push_back(dz);            
-                        continue;
-                    }
-                    if (std::abs(p1_val - p2_val) < 0.00001) {
-                        float dx = (buffer[(int)(x - 0.5f) + (int)y * width + (int)z * area]
-                         - buffer[(int)(x + 0.5f) + (int)y * width + (int)z * area]) * 0.5f;
-                        float dy = (buffer[(int)x + (int)(y - 0.5f) * width + (int)z * area]
-                         - buffer[(int)x + (int)(y + 0.5f) * width + (int)z * area]) * 0.5f;
-                        float dz = (buffer[(int)x + (int)y * width + (int)(z - 0.5f) * area]
-                         - buffer[(int)x + (int)y * width + (int)(z + 0.5f) * area]) * 0.5f;
-                        TemporaryBuffer.push_back((p1.x - width) / width);
-                        TemporaryBuffer.push_back(-(p1.z - height) / height);
-                        TemporaryBuffer.push_back(-(p1.y - length) / length);
-
-                        TemporaryBuffer.push_back(dx);
-                        TemporaryBuffer.push_back(dy);
-                        TemporaryBuffer.push_back(dz);            
-                        continue;
-                    }
-
-
-                    const float fake_Mu = (threshold - p1_val) / (p2_val - p1_val);
                     glm::vec3 interpolated_p = p1 + fake_Mu * (p2 - p1);
+
                     // Normal calculations must be improved
                     float dx = (buffer[(int)(x - 0.5f) + (int)y * width + (int)z * area]
-                     - buffer[(int)(x + 0.5f) + (int)y * width + (int)z * area]) * 0.5f;
+                     - buffer[(int)(x + 1.f) + (int)y * width + (int)z * area]) * 0.5f;
                     float dy = (buffer[(int)x + (int)(y - 0.5f) * width + (int)z * area]
-                     - buffer[(int)x + (int)(y + 0.5f) * width + (int)z * area]) * 0.5f;
+                     - buffer[(int)x + (int)(y + 1.f) * width + (int)z * area]) * 0.5f;
                     float dz = (buffer[(int)x + (int)y * width + (int)(z - 0.5f) * area]
-                     - buffer[(int)x + (int)y * width + (int)(z + 0.5f) * area]) * 0.5f;
-                    TemporaryBuffer.push_back((interpolated_p.x - width) / width);
-                    TemporaryBuffer.push_back(-(interpolated_p.z - height) / height);
-                    TemporaryBuffer.push_back(-(interpolated_p.y - length) / length);
-
-                    TemporaryBuffer.push_back(dx);
-                    TemporaryBuffer.push_back(dy);
-                    TemporaryBuffer.push_back(dz);            
+                     - buffer[(int)x + (int)y * width + (int)(z + 1.f) * area]) * 0.5f;
+                    TemporaryBuffer.push_back({
+                        (interpolated_p.x - width) / width,
+                        -(interpolated_p.z - height) / height,
+                        -(interpolated_p.y - length) / length
+                    });
+                    TemporaryBuffer.push_back({dx, dy, dz});
 
                     centroid.x += (interpolated_p.x - width) / width;
                     centroid.z -= (interpolated_p.y - length) / length;
@@ -165,7 +115,7 @@ void MarchingCubes::marching_cubes(
     }
 
     {
-        // Also maybe a memcpy could be faster, but we would have to know the number of vertices
+        // Also maybe a memcpy to a buffer could be faster, but we would have to know the number of vertices
         std::lock_guard<std::mutex> lock(OutVerticesMutex);
         OutputVertices.insert(OutputVertices.end(), TemporaryBuffer.begin(), TemporaryBuffer.end());
     }
@@ -173,7 +123,7 @@ void MarchingCubes::marching_cubes(
     // The last one who finishes sets the flag
     finished++;
     if (finished == n_threads) {
-        centroid /= (TemporaryBuffer.size() / 6);
+        centroid /= (TemporaryBuffer.size() / 2);
         marched.test_and_set();
     }
 }
@@ -183,6 +133,7 @@ void MarchingCubes::launchThreaded(
     glm::vec3& centroid, int step, int n_threads
 ) {
     marched.clear();
+    OutputVertices.clear();
     finished = 0;
 
     for (int thread_idx = 0; thread_idx < n_threads; thread_idx++) {

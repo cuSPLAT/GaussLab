@@ -10,14 +10,18 @@
 
 extern int8_t triangle_table[256][16];
 
+struct Vertex {
+    float x, y, z;
+};
+
 class MarchingCubes {
-    static std::vector<std::thread> threads;
 
 public:
+    static std::vector<std::thread> threads;
     // a static class
     MarchingCubes() = delete;
 
-    static std::vector<float> OutputVertices;
+    static std::vector<Vertex> OutputVertices;
     static std::atomic_flag marched;
     static std::atomic<uint8_t> finished;
 

@@ -13,8 +13,8 @@
 #include "renderer.h"
 
 Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) {
-    cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
-    cameraTarget = glm::vec3(0.0f, 0.0f, -1.0f);
+    cameraPos = glm::vec3(0.0f, 0.0f, 1.0f);
+    cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
     cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     view = glm::lookAt(
         cameraPos, cameraPos + cameraTarget, cameraUp
@@ -23,7 +23,7 @@ Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) 
     yaw = -90.0f, pitch = 0.0f;
 
     // This is just a matrix to test with
-    projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.03f, 100.0f);
+    projection = glm::perspective(glm::radians(45.0f), 1500.0f / 900.0f, 0.05f, 1000.0f);
 
     posVector = new GLfloat[16];
 }

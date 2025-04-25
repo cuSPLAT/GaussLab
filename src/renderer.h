@@ -14,10 +14,11 @@
 #include <cuda_gl_interop.h>
 
 #include "camera.h"
+#include "algorithms/marchingcubes.h"
 
 struct Scene {
     std::unique_ptr<float[]> sceneDataBuffer;
-    size_t verticesCount;
+    size_t verticesCount = 0;
     size_t bufferSize;
     glm::vec3 centroid;
 };
@@ -64,7 +65,7 @@ class Renderer {
 
 // for public variables, to make the code cleaner
 public:
-     unsigned int verticesCount;
+     unsigned int verticesCount = 0;
 
 public:
     Renderer(int width, int height);
@@ -76,7 +77,7 @@ public:
     GLuint shaderProgram, veryRealComputeProgram;
     GLuint gaussRenProgram;
 
-    void constructScene(Scene* scene, std::vector<float>& vertices);
+    void constructScene(Scene* scene, std::vector<Vertex>& vertices);
     GLuint getRenderBuffer();
 
     Camera* getCamera();

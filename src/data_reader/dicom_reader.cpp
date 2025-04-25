@@ -45,7 +45,7 @@ void DicomReader::readDirectory(const std::string& path) {
     
     // allocate a 1D block that will be usesd by Tigre to do the projections
     const u_int32_t length =  width * height * dicomFiles.size();
-    float* volume = new float[length];
+    std::unique_ptr<float[]> volume = std::make_unique<float[]>(length);
 
     if (bits == 16) {
         size_t index = 0;
@@ -78,7 +78,7 @@ void DicomReader::readDirectory(const std::string& path) {
         // a single image
     }
 
-    loadedData.buffer = volume;
+    loadedData.buffer = std::move(volume);
     loadedData.width = width;
     loadedData.length = height;
     loadedData.height = dicomFiles.size();
