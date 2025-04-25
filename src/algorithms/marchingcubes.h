@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 #include <thread>
 
@@ -18,6 +19,7 @@ class MarchingCubes {
 
 public:
     static std::vector<std::thread> threads;
+    static std::unordered_map<int, std::vector<Vertex>> TemporaryBuffers;
     // a static class
     MarchingCubes() = delete;
 
@@ -25,8 +27,7 @@ public:
     static std::atomic_flag marched;
     static std::atomic<uint8_t> finished;
 
-    // I don't know if this will give the best performance but it is one of the ways
-    static std::mutex OutVerticesMutex; 
+    static int num_threads;
 
     static void marching_cubes(
         float* buffer, int width, int length, int height, float threshold,

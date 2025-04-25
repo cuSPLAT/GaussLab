@@ -5,32 +5,34 @@
 #include <glm/glm.hpp>
 #include <glm/fwd.hpp>
 #include <iostream>
-#include <mutex>
 #include <thread>
 #include <tuple>
+#include <unordered_map>
 
 typedef std::tuple<int, int, int> vec3; //  will be removed
 
 std::vector<Vertex> MarchingCubes::OutputVertices;
+std::unordered_map<int, std::vector<Vertex>> MarchingCubes::TemporaryBuffers = {{0, {}},{1, {}},{2, {}},{3, {}}};
 std::vector<std::thread> MarchingCubes::threads;
 
 std::atomic_flag MarchingCubes::marched;
 std::atomic<uint8_t> MarchingCubes::finished {0};
-std::mutex MarchingCubes::OutVerticesMutex;
+
+int MarchingCubes::num_threads = 0;
 
 static int edge_vertex_pairs[][6] = {
-    {0, 1, 1, 1, 1, 1},
-    {1, 0, 1, 1, 1, 1},
-    {0, 0, 1, 1, 0, 1},
-    {0, 0, 1, 0, 1, 1},
-    {0, 1, 0, 1, 1, 0},
-    {1, 0, 0, 1, 1, 0},
     {0, 0, 0, 1, 0, 0},
+    {1, 0, 0, 1, 1, 0},
+    {1, 1, 0, 0, 1, 0},
     {0, 0, 0, 0, 1, 0},
-    {0, 1, 0, 0, 1, 1},
-    {1, 1, 0, 1, 1, 1},
-    {1, 0, 0, 1, 0, 1},
+    {0, 0, 1, 1, 0, 1},
+    {1, 0, 1, 1, 1, 1},
+    {1, 1, 1, 0, 1, 1},
+    {0, 0, 1, 0, 1, 1},
     {0, 0, 0, 0, 0, 1},
+    {1, 0, 0, 1, 0, 1},
+    {1, 1, 0, 1, 1, 1},
+    {0, 1, 0, 0, 1, 1},
 };
 
 inline int8_t* get_triangulations(
@@ -40,14 +42,14 @@ inline int8_t* get_triangulations(
     const int sliceArea = width * length;
 
     uint8_t index = 0;
-    index |= buffer[x + (y + step) * width + (z + step)* sliceArea] > threshold;
-    index |= (buffer[(x + step) + (y + step) * width + (z + step) * sliceArea] > threshold) << 1;
-    index |= (buffer[(x + step) + y * width + (z + step) * sliceArea] > threshold) << 2;
-    index |= (buffer[x + y * width + (z + step) * sliceArea] > threshold) << 3;
-    index |= (buffer[x + (y + step) * width + z * sliceArea] > threshold) << 4;
-    index |= (buffer[(x + step) + (y + step) * width + z * sliceArea] > threshold) << 5;
-    index |= (buffer[(x + step) + y * width + z * sliceArea] > threshold) << 6;
-    index |= (buffer[x + y * width + z * sliceArea] > threshold) << 7;
+    index |= buffer[x + y * width + z * sliceArea] > threshold;
+    index |= (buffer[(x + step) + y * width + z * sliceArea] > threshold) << 1;
+    index |= (buffer[(x + step) + (y + step) * width + z * sliceArea] > threshold) << 2;
+    index |= (buffer[x + (y + step) * width + z * sliceArea] > threshold) << 3;
+    index |= (buffer[x + y * width + (z + step) * sliceArea] > threshold) << 4;
+    index |= (buffer[(x + step) + y * width + (z + step) * sliceArea] > threshold) << 5;
+    index |= (buffer[(x + step) + (y + step) * width + (z + step) * sliceArea] > threshold) << 6;
+    index |= (buffer[x + (y + step) * width + (z + step) * sliceArea] > threshold) << 7;
 
     return triangle_table[index];
 }
@@ -59,8 +61,6 @@ void MarchingCubes::marching_cubes(
     const int area = width * length;
     const int thread_stride = height / n_threads + 1;
     const int start_z = thread_idx * thread_stride;
-
-    std::vector<Vertex> TemporaryBuffer;
 
     for (int z = start_z; z < start_z + thread_stride && z < height - step; z += step) {
         for (int y = 0; y < length - step; y += step) {
@@ -99,12 +99,12 @@ void MarchingCubes::marching_cubes(
                      - buffer[(int)x + (int)(y + 1.f) * width + (int)z * area]) * 0.5f;
                     float dz = (buffer[(int)x + (int)y * width + (int)(z - 0.5f) * area]
                      - buffer[(int)x + (int)y * width + (int)(z + 1.f) * area]) * 0.5f;
-                    TemporaryBuffer.push_back({
+                    TemporaryBuffers[thread_idx].push_back({
                         (interpolated_p.x - width) / width,
                         -(interpolated_p.z - height) / height,
                         -(interpolated_p.y - length) / length
                     });
-                    TemporaryBuffer.push_back({dx, dy, dz});
+                    TemporaryBuffers[thread_idx].push_back({dx, dy, dz});
 
                     centroid.x += (interpolated_p.x - width) / width;
                     centroid.z -= (interpolated_p.y - length) / length;
@@ -113,17 +113,11 @@ void MarchingCubes::marching_cubes(
             }
         }
     }
-
-    {
-        // Also maybe a memcpy to a buffer could be faster, but we would have to know the number of vertices
-        std::lock_guard<std::mutex> lock(OutVerticesMutex);
-        OutputVertices.insert(OutputVertices.end(), TemporaryBuffer.begin(), TemporaryBuffer.end());
-    }
     
     // The last one who finishes sets the flag
     finished++;
     if (finished == n_threads) {
-        centroid /= (TemporaryBuffer.size() / 2);
+        centroid /= (TemporaryBuffers[thread_idx].size() / 2);
         marched.test_and_set();
     }
 }
@@ -135,6 +129,7 @@ void MarchingCubes::launchThreaded(
     marched.clear();
     OutputVertices.clear();
     finished = 0;
+    num_threads = n_threads;
 
     for (int thread_idx = 0; thread_idx < n_threads; thread_idx++) {
         threads.emplace_back(

@@ -211,7 +211,16 @@ void Interface::startMainLoop() {
                     if (MarchingCubes::marched.test()) {
                         MarchingCubes::marched.clear();
                         Scene scene;
+                        for (int i = 0; i < MarchingCubes::num_threads; i++) {
+                            MarchingCubes::OutputVertices.insert(
+                                MarchingCubes::OutputVertices.end(),
+                                MarchingCubes::TemporaryBuffers[i].begin(),
+                                MarchingCubes::TemporaryBuffers[i].end()
+                            );
+                        }
                         renderer->constructScene(&scene, MarchingCubes::OutputVertices);
+                        for (int i = 0; i < MarchingCubes::num_threads; i++)
+                            MarchingCubes::TemporaryBuffers[i].clear();
                     }
                     // ------------------------------------------------------
                     ImGui::EndTabItem();
