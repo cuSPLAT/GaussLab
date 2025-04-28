@@ -191,43 +191,48 @@ void Interface::startMainLoop() {
                     }
                     // ---------------------------------------------------
                     ImGui::Checkbox("Sorting", &globalState.sortingEnabled);
-                    // --------------------- Marching Cubes -----------------
-                    if (ImGui::SliderInt("Threads", &selected_index, 0, 2, ""))
-                        n_threads = allowed_threads[selected_index];
-                    ImGui::SameLine();
-                    ImGui::Text("%d", allowed_threads[selected_index]);
-                    if(ImGui::Button("March")) {
-                        if (dcmReader.loadedData.readable.test()) {
-                            DicomReader::DicomData& data = dcmReader.loadedData;
-                            MarchingCubes::launchThreaded(
-                                data.buffer.get(),
-                                data.width, data.length, data.height,
-                                660, centroid,
-                                1, n_threads
-                            );
-                        }
-                    }
-
-                    if (MarchingCubes::marched.test()) {
-                        MarchingCubes::marched.clear();
-                        Scene scene;
-                        for (int i = 0; i < MarchingCubes::num_threads; i++) {
-                            MarchingCubes::OutputVertices.insert(
-                                MarchingCubes::OutputVertices.end(),
-                                MarchingCubes::TemporaryBuffers[i].begin(),
-                                MarchingCubes::TemporaryBuffers[i].end()
-                            );
-                        }
-                        renderer->constructScene(&scene, MarchingCubes::OutputVertices);
-                        for (int i = 0; i < MarchingCubes::num_threads; i++)
-                            MarchingCubes::TemporaryBuffers[i].clear();
-                    }
-                    // ------------------------------------------------------
                     ImGui::EndTabItem();
                 }
             }
             ImGui::EndTabBar();
+            
         }
+        ImGui::End();
+
+        // --------------------- Marching Cubes -----------------
+        if (ImGui::Begin("Marching Cubes")) {
+            if (ImGui::SliderInt("Threads", &selected_index, 0, 2, ""))
+                n_threads = allowed_threads[selected_index];
+            ImGui::SameLine();
+            ImGui::Text("%d", allowed_threads[selected_index]);
+            if(ImGui::Button("March")) {
+                if (dcmReader.loadedData.readable.test()) {
+                    DicomReader::DicomData& data = dcmReader.loadedData;
+                    MarchingCubes::launchThreaded(
+                        data.buffer.get(),
+                        data.width, data.length, data.height,
+                        660, centroid,
+                        1, n_threads
+                    );
+                }
+            }
+
+            if (MarchingCubes::marched.test()) {
+                MarchingCubes::marched.clear();
+                Scene scene;
+                for (int i = 0; i < MarchingCubes::num_threads; i++) {
+                    MarchingCubes::OutputVertices.insert(
+                        MarchingCubes::OutputVertices.end(),
+                        MarchingCubes::TemporaryBuffers[i].begin(),
+                        MarchingCubes::TemporaryBuffers[i].end()
+                    );
+                }
+                renderer->constructScene(&scene, MarchingCubes::OutputVertices);
+                for (int i = 0; i < MarchingCubes::num_threads; i++)
+                    MarchingCubes::TemporaryBuffers[i].clear();
+            }
+        }
+        // ------------------------------------------------------
         ImGui::End();
 
         
