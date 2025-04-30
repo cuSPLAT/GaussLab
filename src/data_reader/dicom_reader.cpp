@@ -1,13 +1,20 @@
 #include "dicom_reader.h"
 
+#include <ATen/core/TensorBody.h>
+#include <ATen/ops/from_blob.h>
+#include <c10/core/ScalarType.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 #include <string>
 
 #include <torch/types.h>
-#include <tuple>
 
-#include "../renderer.h"
+#include "../cuda/debug_utils.h"
 #include "../debug_utils.h"
 
 namespace fs = std::filesystem;
@@ -45,25 +52,27 @@ void DicomReader::readDirectory(const std::string& path) {
     
     // allocate a 1D block that will be usesd by Tigre to do the projections
     const u_int32_t length =  width * height * dicomFiles.size();
+    const int single_slice = width * height;
     std::unique_ptr<float[]> volume = std::make_unique<float[]>(length);
 
+    TIME_SANDWICH_START(load);
     if (bits == 16) {
         size_t index = 0;
-        for (const auto& image : dicomFiles) {
-            auto pixel_data = getDataManipulator(image, vega::dictionary::PixelData_OW);
-            auto slope_manipulator = getDataManipulator(image, vega::dictionary::RescaleSlope);
-            auto intercept_manipulator = getDataManipulator(image, vega::dictionary::RescaleIntercept);
+        for (size_t i = 0; i < dicomFiles.size(); i++) {
+            auto pixel_data = getDataManipulator(dicomFiles[i], vega::dictionary::PixelData_OW);
+            auto slope_manipulator = getDataManipulator(dicomFiles[i], vega::dictionary::RescaleSlope);
+            auto intercept_manipulator = getDataManipulator(dicomFiles[i], vega::dictionary::RescaleIntercept);
 
             float slope = static_cast<float>(*slope_manipulator->begin());
             float intercept = static_cast<float>(*intercept_manipulator->begin());
 
-            for (auto it = pixel_data->begin(); it != pixel_data->end(); it++) {
-                volume[index] = it->u * slope + intercept;
-                index++;
+            uint16_t* pixel_array = reinterpret_cast<uint16_t*>(pixel_data->raw_value()->data());
+            torch::Tensor slice_tensor = torch::from_blob(pixel_array, {single_slice}, torch::kUInt16).to(torch::kFloat);
+            slice_tensor = slice_tensor * slope + intercept;
 
-                if (index % (width * height) == 0)
-                    loadingProgress++;
-            }
+            const int offset = i * single_slice;
+            std::memcpy(volume.get() + offset, slice_tensor.const_data_ptr(), single_slice * sizeof(float));
+            loadingProgress++;
         }
 
         // I just created this tensor to use the optimizations that torch gives me
@@ -77,6 +86,7 @@ void DicomReader::readDirectory(const std::string& path) {
         //TODO: implement for DICOM files that have less that 2 bytes for 
         // a single image
     }
+    TIME_SANDWICH_END(load)
 
     loadedData.buffer = std::move(volume);
     loadedData.width = width;

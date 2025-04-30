@@ -1,6 +1,7 @@
 #include "marchingcubes.h"
 #include "../debug_utils.h"
 
+#include <chrono>
 #include <cstdio>
 #include <glm/glm.hpp>
 #include <glm/fwd.hpp>
@@ -14,6 +15,9 @@ typedef std::tuple<int, int, int> vec3; //  will be removed
 std::vector<Vertex> MarchingCubes::OutputVertices;
 std::unordered_map<int, std::vector<Vertex>> MarchingCubes::TemporaryBuffers = {{0, {}},{1, {}},{2, {}},{3, {}}};
 std::vector<std::thread> MarchingCubes::threads;
+
+decltype(std::chrono::high_resolution_clock::now()) MarchingCubes::last_iter_timer 
+    = std::chrono::high_resolution_clock::now();
 
 std::atomic_flag MarchingCubes::marched;
 std::atomic<uint8_t> MarchingCubes::finished {0};
@@ -126,6 +130,7 @@ void MarchingCubes::launchThreaded(
     float* buffer, int width, int length, int height, float threshold,
     glm::vec3& centroid, int step, int n_threads
 ) {
+    last_iter_timer = std::chrono::high_resolution_clock::now();
     marched.clear();
     OutputVertices.clear();
     finished = 0;

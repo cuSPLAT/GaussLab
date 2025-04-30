@@ -1,6 +1,5 @@
 #include "main_interface.h"
 #include "algorithms/marchingcubes.h"
-#include "cuda/debug_utils.h"
 #include "nfd.h"
 #include "renderer.h"
 #include "scene_loader.h"
@@ -8,7 +7,6 @@
 
 #include <chrono>
 #include <cstddef>
-#include <fstream>
 #include <glm/fwd.hpp>
 #include <iostream>
 
@@ -217,6 +215,7 @@ void Interface::startMainLoop() {
                 }
             }
 
+            static int mc_duration = 0;
             if (MarchingCubes::marched.test()) {
                 MarchingCubes::marched.clear();
                 Scene scene;
@@ -227,10 +226,17 @@ void Interface::startMainLoop() {
                         MarchingCubes::TemporaryBuffers[i].end()
                     );
                 }
+
+                // for debugging
+                auto now = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double, std::milli> duration = now - MarchingCubes::last_iter_timer;
+                mc_duration = duration.count();
+
                 renderer->constructScene(&scene, MarchingCubes::OutputVertices);
                 for (int i = 0; i < MarchingCubes::num_threads; i++)
                     MarchingCubes::TemporaryBuffers[i].clear();
             }
+            ImGui::Text("Last run: %d ms", mc_duration);
         }
         // ------------------------------------------------------
         ImGui::End();

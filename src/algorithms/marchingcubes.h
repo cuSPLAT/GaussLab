@@ -2,7 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
-#include <mutex>
+#include <chrono>
 #include <unordered_map>
 #include <vector>
 #include <thread>
@@ -14,6 +14,8 @@ extern int8_t triangle_table[256][16];
 struct Vertex {
     float x, y, z;
 };
+
+//TODO: change the class to a namespace
 
 class MarchingCubes {
 
@@ -28,6 +30,8 @@ public:
     static std::atomic<uint8_t> finished;
 
     static int num_threads;
+
+    static decltype(std::chrono::high_resolution_clock::now()) last_iter_timer;
 
     static void marching_cubes(
         float* buffer, int width, int length, int height, float threshold,
