@@ -31,7 +31,9 @@ public:
     DicomReader(const std::string& dictionary = "");
     
     void readDirectory(const std::string& path);
-    void offloadGPU(const float* dst, int length, int sliceWidth, int sliceHeight);
+
+    void loadData_thread(int threadidx, float* buffer, int signed_value, int slice_area);
+    void loadDataMultithreaded(float* volume, int signed_value, int slice_area);
 
     void launchReaderThread(const std::string& path);
     void cleanupThreads();

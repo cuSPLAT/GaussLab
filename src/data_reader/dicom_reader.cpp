@@ -1,8 +1,6 @@
 #include "dicom_reader.h"
 
-#include <ATen/core/TensorBody.h>
 #include <ATen/ops/from_blob.h>
-#include <c10/core/ScalarType.h>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -56,43 +54,12 @@ void DicomReader::readDirectory(const std::string& path) {
     
     // allocate a 1D block that will be usesd by Tigre to do the projections
     const u_int32_t length =  width * height * dicomFiles.size();
-    const int single_slice = width * height;
+    const int slice_area = width * height;
     std::unique_ptr<float[]> volume = std::make_unique<float[]>(length);
 
     TIME_SANDWICH_START(load);
     if (bits == 16) {
-        for (size_t i = 0; i < dicomFiles.size(); i++) {
-            auto pixel_data = getDataManipulator(dicomFiles[i], vega::dictionary::PixelData_OW);
-            auto slope_manipulator = getDataManipulator(dicomFiles[i], vega::dictionary::RescaleSlope);
-            auto intercept_manipulator = getDataManipulator(dicomFiles[i], vega::dictionary::RescaleIntercept);
-
-            float slope = static_cast<float>(*slope_manipulator->begin());
-            float intercept = static_cast<float>(*intercept_manipulator->begin());
-
-            torch::Tensor slice_tensor;
-            if (signed_value) {
-                int16_t* pixel_array = reinterpret_cast<int16_t*>(&(*pixel_data->begin())); // WTF ?
-                slice_tensor = torch::from_blob(pixel_array, {single_slice}, torch::kInt16).to(torch::kFloat);
-            } else {
-                uint16_t* pixel_array = reinterpret_cast<uint16_t*>(&(*pixel_data->begin()));
-                slice_tensor = torch::from_blob(pixel_array, {single_slice}, torch::kUInt16).to(torch::kFloat);
-            }
-
-
-            slice_tensor = slice_tensor * slope + intercept;
-            const int offset = i * single_slice;
-            std::memcpy(volume.get() + offset, slice_tensor.const_data_ptr(), single_slice * sizeof(float));
-            loadingProgress++;
-        }
-
-
-        // I just created this tensor to use the optimizations that torch gives me
-        // and there is no overhead because torch does not clone the data
-        //torch::Tensor volume_tensor = torch::from_blob(volume, {length}, torch::kFloat);
-        //auto max_val = volume_tensor.max(), min_val = volume_tensor.min();
-        //volume_tensor -= min_val;
-        //volume_tensor /= max_val - min_val;
-
+        loadDataMultithreaded(volume.get(), signed_value, slice_area);
     } else {
         //TODO: implement for DICOM files that have less that 2 bytes for 
         // a single image
@@ -114,6 +81,51 @@ void DicomReader::launchReaderThread(const std::string& path) {
         readDirectory(path);
     });
     threads.push_back(std::move(thread));
+}
+
+void DicomReader::loadDataMultithreaded(float* volume, int signed_value, int slice_area) {
+    // 2 threads are harcoded that can give good performance, maybe
+    // later this can be changed to be chosen
+    std::thread t1(
+        &DicomReader::loadData_thread, this, 0,
+        volume, signed_value, slice_area
+    );
+    std::thread t2(
+        &DicomReader::loadData_thread, this, 1,
+        volume, signed_value, slice_area
+    );
+    
+    t1.join();
+    t2.join();
+}
+
+
+void DicomReader::loadData_thread(int threadidx, float* buffer, int signed_value, int slice_area) {
+    const int stride = dicomFiles.size() / 2 + 1;
+    const int start_idx = stride * threadidx;
+
+    for (size_t i = start_idx; i < start_idx + stride && i < dicomFiles.size(); i++) {
+        auto pixel_data = getDataManipulator(dicomFiles[i], vega::dictionary::PixelData_OW);
+        auto slope_manipulator = getDataManipulator(dicomFiles[i], vega::dictionary::RescaleSlope);
+        auto intercept_manipulator = getDataManipulator(dicomFiles[i], vega::dictionary::RescaleIntercept);
+
+        float slope = static_cast<float>(*slope_manipulator->begin());
+        float intercept = static_cast<float>(*intercept_manipulator->begin());
+
+        torch::Tensor slice_tensor;
+        if (signed_value) {
+            int16_t* pixel_array = reinterpret_cast<int16_t*>(&(*pixel_data->begin())); // WTF ?
+            slice_tensor = torch::from_blob(pixel_array, {slice_area}, torch::kInt16).to(torch::kFloat);
+        } else {
+            uint16_t* pixel_array = reinterpret_cast<uint16_t*>(&(*pixel_data->begin()));
+            slice_tensor = torch::from_blob(pixel_array, {slice_area}, torch::kUInt16).to(torch::kFloat);
+        }
+
+        slice_tensor = slice_tensor * slope + intercept;
+        const int offset = i * slice_area;
+        std::memcpy(buffer + offset, slice_tensor.const_data_ptr(), slice_area * sizeof(float));
+        loadingProgress++;
+    }
 }
 
 void DicomReader::cleanupThreads() {
