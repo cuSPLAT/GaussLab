@@ -2,10 +2,12 @@
 #include "../debug_utils.h"
 
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <glm/glm.hpp>
 #include <glm/fwd.hpp>
 #include <iostream>
+#include <mutex>
 #include <thread>
 #include <tuple>
 #include <unordered_map>
@@ -21,10 +23,11 @@ decltype(std::chrono::high_resolution_clock::now()) MarchingCubes::last_iter_tim
 
 std::atomic_flag MarchingCubes::marched;
 std::atomic<uint8_t> MarchingCubes::finished {0};
+std::mutex MarchingCubes::vertex_mutex;
 
 int MarchingCubes::num_threads = 0;
 
-static int edge_vertex_pairs[][6] = {
+uint8_t edge_vertex_pairs[][6] = {
     {0, 0, 0, 1, 0, 0},
     {1, 0, 0, 1, 1, 0},
     {1, 1, 0, 0, 1, 0},
@@ -39,7 +42,7 @@ static int edge_vertex_pairs[][6] = {
     {0, 1, 0, 0, 1, 1},
 };
 
-inline int8_t* get_triangulations(
+int8_t* get_triangulations(
     vec3 pos, int width, int length, int height, float threshold, float* buffer, int step
 ) {
     const auto [x, y, z] = pos;
@@ -116,6 +119,15 @@ void MarchingCubes::marching_cubes(
                 }
             }
         }
+    }
+
+    {
+        std::lock_guard<std::mutex> guard(vertex_mutex);
+        OutputVertices.insert(
+            OutputVertices.end(),
+            TemporaryBuffers[thread_idx].begin(),
+            TemporaryBuffers[thread_idx].end()
+        );
     }
     
     // The last one who finishes sets the flag

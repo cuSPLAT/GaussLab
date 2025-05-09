@@ -37,6 +37,7 @@ set(PROJECT_SOURCES
     "src/renderer.cpp"
     "src/shaders.cpp"
     "src/camera.cpp"
+    "src/debug_utils.cpp"
     "src/main_interface.cpp"
     "src/scene_loader.cpp"
     "src/callbacks.cpp"

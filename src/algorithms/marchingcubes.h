@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <chrono>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 #include <thread>
@@ -15,32 +16,28 @@ struct Vertex {
     float x, y, z;
 };
 
-//TODO: change the class to a namespace
+namespace MarchingCubes {
 
-class MarchingCubes {
+    extern std::vector<std::thread> threads;
+    extern std::unordered_map<int, std::vector<Vertex>> TemporaryBuffers;
 
-public:
-    static std::vector<std::thread> threads;
-    static std::unordered_map<int, std::vector<Vertex>> TemporaryBuffers;
-    // a static class
-    MarchingCubes() = delete;
+    extern std::vector<Vertex> OutputVertices;
+    extern std::atomic_flag marched;
+    extern std::atomic<uint8_t> finished;
+    extern std::mutex vertex_mutex;
 
-    static std::vector<Vertex> OutputVertices;
-    static std::atomic_flag marched;
-    static std::atomic<uint8_t> finished;
+    extern int num_threads;
 
-    static int num_threads;
+    extern decltype(std::chrono::high_resolution_clock::now()) last_iter_timer;
 
-    static decltype(std::chrono::high_resolution_clock::now()) last_iter_timer;
-
-    static void marching_cubes(
+    void marching_cubes(
         float* buffer, int width, int length, int height, float threshold,
         glm::vec3& centroid, int step, int n_threads, int thread_idx
     );
-    static void launchThreaded(
+    void launchThreaded(
         float* buffer, int width, int length, int height, float threshold,
         glm::vec3& centroid, int step, int n_threads
     );
 
-    static void cleanUp();
+    void cleanUp();
 };

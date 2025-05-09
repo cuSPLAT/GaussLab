@@ -4,9 +4,9 @@
 #include "renderer.h"
 #include "scene_loader.h"
 #include "callbacks.h"
+#include "debug_utils.h"
 
 #include <chrono>
-#include <cstddef>
 #include <glm/fwd.hpp>
 #include <iostream>
 
@@ -101,17 +101,13 @@ std::string Interface::openFileDialog() {
 void Interface::setupRenderer() {
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
-
-    //Scene* pcd = PLYLoader::loadPLy("/home/Abdelrahman/Downloads/christmas_tree.ply");
-    //pcd->centroid = centroid;
-    //renderer->constructScene(pcd, vertices);
-    
-    //delete pcd;
 }
 
 void Interface::createViewWindow() {
     if (ImGui::Begin("View")) {
         ImVec2 viewSize = ImGui::GetWindowSize();
+        //TODO: don't always update, just update when window size changes
+        renderer->getCamera()->updateViewport(viewSize.x, viewSize.y, renderer->shaderProgram);
         ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize, ImVec2(0,1), ImVec2(1, 0));
     }
     ImGui::End();
@@ -198,6 +194,7 @@ void Interface::startMainLoop() {
         ImGui::End();
 
         // --------------------- Marching Cubes -----------------
+        static bool rendered = false;
         if (ImGui::Begin("Marching Cubes")) {
             if (ImGui::SliderInt("Threads", &selected_index, 0, 2, ""))
                 n_threads = allowed_threads[selected_index];
@@ -205,7 +202,10 @@ void Interface::startMainLoop() {
             ImGui::Text("%d", allowed_threads[selected_index]);
             if(ImGui::Button("March")) {
                 if (dcmReader.loadedData.readable.test()) {
+                    rendered = false;
                     DicomReader::DicomData& data = dcmReader.loadedData;
+
+                    MarchingCubes::marched.clear();
                     MarchingCubes::launchThreaded(
                         data.buffer.get(),
                         data.width, data.length, data.height,
@@ -216,16 +216,9 @@ void Interface::startMainLoop() {
             }
 
             static int mc_duration = 0;
-            if (MarchingCubes::marched.test()) {
-                MarchingCubes::marched.clear();
+            if (MarchingCubes::marched.test() && !rendered) {
+                rendered = true;
                 Scene scene;
-                for (int i = 0; i < MarchingCubes::num_threads; i++) {
-                    MarchingCubes::OutputVertices.insert(
-                        MarchingCubes::OutputVertices.end(),
-                        MarchingCubes::TemporaryBuffers[i].begin(),
-                        MarchingCubes::TemporaryBuffers[i].end()
-                    );
-                }
 
                 // for debugging
                 auto now = std::chrono::high_resolution_clock::now();
@@ -279,6 +272,12 @@ void Interface::createMenuBar() {
                 dcmReader.launchReaderThread(dir_path);
                 launchPopup = true;
                 // ------------------------------------------------
+            }
+            if (ImGui::MenuItem("Export OBJ")) {
+                if (MarchingCubes::marched.test()) {
+                    //TODO: choose export path
+                    DebugUtils::exportObj("output.obj", MarchingCubes::OutputVertices);
+                }
             }
             ImGui::EndMenu();
         }

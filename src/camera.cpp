@@ -1,4 +1,5 @@
 #include <cmath>
+#include <glm/ext/matrix_clip_space.hpp>
 #include <iostream>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
@@ -23,7 +24,7 @@ Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) 
     yaw = -90.0f, pitch = 0.0f;
 
     // This is just a matrix to test with
-    projection = glm::perspective(glm::radians(45.0f), 1500.0f / 900.0f, 0.05f, 1000.0f);
+    projection = glm::perspective(glm::radians(45.0f), width / (float)height, 3.f, 8.f);
 
     posVector = new GLfloat[16];
 }
@@ -32,14 +33,23 @@ Camera::~Camera() {
     delete posVector;
 }
 
+void Camera::updateViewport(float width, float height, int shader) {
+    this->width = width;
+    this->height = height;
+
+    projection = glm::perspective(glm::radians(45.f), width/height, 0.01f, 5.f);
+    GLuint matrixLocation = glGetUniformLocation(shader, "projection");
+    glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
+};
+
 void Camera::registerView(GLuint shaderId) {
     GLuint matrixLocation = glGetUniformLocation(shaderId, "view");
     glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(view));
 
-    matrixLocation = glGetUniformLocation(shaderId, "projection");
-    if (matrixLocation != -1) {
-        glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
-    }
+    //matrixLocation = glGetUniformLocation(shaderId, "projection");
+    //if (matrixLocation != -1) {
+    //    glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
+    //}
 }
 
 void Camera::getPositionFromShader(GLuint shaderId) {

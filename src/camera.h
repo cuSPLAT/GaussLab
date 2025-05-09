@@ -30,6 +30,8 @@ public:
     void handleInput(GLFWwindow* window);
     void uploadIntrinsics(GLuint program);
 
+    void updateViewport(float width, float height, int shader);
+
     void getPositionFromShader(GLuint shaderId);
     void calculateDirection(GLFWwindow* window, double xpos, double ypos);
     void calculateZoom(double yoffset);

@@ -49,6 +49,17 @@ void Renderer::initializeRendererBuffer() {
     glFramebufferTexture2D(
         GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rendererBuffer, 0
     );
+
+    GLuint depth;
+    glGenTextures(1, &depth);
+    glBindTexture(GL_TEXTURE_2D, depth);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH32F_STENCIL8, width, height, 0, 
+        GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr
+    );
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
@@ -186,7 +197,7 @@ void Renderer::constructScene(Scene* scene, std::vector<Vertex>& vertices) {
     //glBufferData(GL_SHADER_STORAGE_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
     //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
 
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
     //TODO: understand this
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -229,7 +240,7 @@ void Renderer::render(GLFWwindow* window) {
     }
 
     glClearColor(0.0, 0.0, 0.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // drawing into the small window happens here
     // we only have one VAO and one shader that are always binded
     // no need to rebind them on every draw call
