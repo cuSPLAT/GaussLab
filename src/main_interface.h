@@ -20,6 +20,8 @@ class Interface {
 
     nfdopendialogu8args_t args;
 
+    void setupStyle();
+
 public:
     Interface();
     ~Interface();
@@ -32,6 +34,7 @@ public:
     void startMainLoop();
 
     std::string openFileDialog();
+
 
     void createMenuBar();
     void createViewWindow();

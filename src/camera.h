@@ -8,7 +8,6 @@
 #include <GLFW/glfw3.h>
 
 class Camera {
-    glm::mat4 view, projection;
     glm::vec3 cameraPos, cameraUp, cameraTarget;
     glm::vec3 direction;
     glm::vec3 sceneCentroid;
@@ -17,11 +16,14 @@ class Camera {
 
     float fov;
     float yaw, pitch;
-    int width, height;
     GLfloat* posVector;
 
 public:
+    // Probably it is better to make them public in the 
+    // renderer, but leave it for later
+    int width, height;
     bool scene = true;
+    glm::mat4 view, projection;
 
 public:
     Camera(int width, int height);

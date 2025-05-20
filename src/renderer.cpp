@@ -138,7 +138,7 @@ void Renderer::generateInitialBuffers() {
 
 void Renderer::constructScene(Scene* scene, std::vector<Vertex>& vertices) {
     verticesCount = vertices.size() / 2;
-    //camera.setCentroid(scene->centroid);
+    camera.setCentroid(scene->centroid);
     camera.registerView(shaderProgram);
     newScene = true;
 

@@ -14,8 +14,8 @@
 #include "renderer.h"
 
 Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) {
-    cameraPos = glm::vec3(0.0f, 0.0f, 1.0f);
-    cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+    cameraPos = glm::vec3(5.0f, 5.0f, 10.0f);
+    cameraTarget = glm::vec3(0.0f, 0.0f, 1.0f);
     cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     view = glm::lookAt(
         cameraPos, cameraPos + cameraTarget, cameraUp
@@ -24,7 +24,7 @@ Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) 
     yaw = -90.0f, pitch = 0.0f;
 
     // This is just a matrix to test with
-    projection = glm::perspective(glm::radians(45.0f), width / (float)height, 3.f, 8.f);
+    projection = glm::perspective(glm::radians(45.0f), width / (float)height, 3.f, 30.f);
 
     posVector = new GLfloat[16];
 }
@@ -102,10 +102,11 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
         localYaw += xoffset;
         localPitch += yoffset;
 
-        glm::mat4 translateToOrigin = glm::translate(glm::mat4(1.0f), sceneCentroid - 0.5f);
-        glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(localYaw), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 yRot = glm::rotate(xRot, glm::radians(localPitch), glm::vec3(1.0f, 0.0f, 0.0f));
-        view = glm::translate(yRot, -1.0f * sceneCentroid);
+        view = glm::scale(glm::mat4(1.0f), glm::vec3(0.0001));
+        view = glm::translate(view, -sceneCentroid);
+        //glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(localYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        //glm::mat4 yRot = glm::rotate(xRot, glm::radians(localPitch), glm::vec3(1.0f, 0.0f, 0.0f));
+        //view = glm::translate(yRot, -1.0f * sceneCentroid);
 
         return;
     }

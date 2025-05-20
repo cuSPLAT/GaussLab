@@ -68,6 +68,7 @@ void MarchingCubes::marching_cubes(
     const int area = width * length;
     const int thread_stride = height / n_threads + 1;
     const int start_z = thread_idx * thread_stride;
+    glm::vec3 local_centroid = glm::vec3(0);
 
     for (int z = start_z; z < start_z + thread_stride && z < height - step; z += step) {
         for (int y = 0; y < length - step; y += step) {
@@ -107,15 +108,15 @@ void MarchingCubes::marching_cubes(
                     float dz = (buffer[(int)x + (int)y * width + (int)(z - 0.5f) * area]
                      - buffer[(int)x + (int)y * width + (int)(z + 1.f) * area]) * 0.5f;
                     TemporaryBuffers[thread_idx].push_back({
-                        (interpolated_p.x - width) / width,
-                        -(interpolated_p.z - height) / height,
-                        -(interpolated_p.y - length) / length
+                        interpolated_p.x,
+                        interpolated_p.z,
+                        interpolated_p.y,
                     });
                     TemporaryBuffers[thread_idx].push_back({dx, dy, dz});
 
-                    centroid.x += (interpolated_p.x - width) / width;
-                    centroid.z -= (interpolated_p.y - length) / length;
-                    centroid.y -= (interpolated_p.z - height) / height;
+                    local_centroid.x += interpolated_p.x;
+                    local_centroid.z += interpolated_p.y;
+                    local_centroid.y += interpolated_p.z;
                 }
             }
         }
@@ -128,12 +129,13 @@ void MarchingCubes::marching_cubes(
             TemporaryBuffers[thread_idx].begin(),
             TemporaryBuffers[thread_idx].end()
         );
+        centroid += local_centroid;
     }
     
     // The last one who finishes sets the flag
     finished++;
     if (finished == n_threads) {
-        centroid /= (TemporaryBuffers[thread_idx].size() / 2);
+        centroid /= (OutputVertices.size() / 2);
         marched.test_and_set();
     }
 }

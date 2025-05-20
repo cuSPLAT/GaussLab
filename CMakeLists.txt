@@ -9,7 +9,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_PREFIX_PATH external/libtorch)
 
 add_subdirectory(external/nativefiledialog)
-add_subdirectory(external/Tigre)
 add_subdirectory(external/vega)
 
 find_package(OpenGL REQUIRED)
@@ -41,6 +40,8 @@ set(PROJECT_SOURCES
     "src/main_interface.cpp"
     "src/scene_loader.cpp"
     "src/callbacks.cpp"
+    "src/tools/tools.cpp"
+    "src/tools/meshslicing.cpp"
     "src/data_reader/dicom_reader.cpp"
     "src/cuda/render_utils.cu"
     "src/algorithms/marchingcubes.cpp"
@@ -75,7 +76,6 @@ target_link_libraries(
     glfw
     glm::glm
 
-    Tigre
     nfd
     vega
 )

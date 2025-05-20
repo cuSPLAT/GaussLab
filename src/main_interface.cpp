@@ -6,6 +6,8 @@
 #include "callbacks.h"
 #include "debug_utils.h"
 
+#include "tools/tools.h"
+
 #include <chrono>
 #include <glm/fwd.hpp>
 #include <iostream>
@@ -55,10 +57,18 @@ bool Interface::setupWindow() {
     glfwSetWindowUserPointer(window, renderer);
 
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //-------------------- Callbacks -----------------------
     glfwSetCursorPosCallback(window, Callbacks::mouse_callback);
     glfwSetScrollCallback(window, Callbacks::scroll_callback);
+    glfwSetMouseButtonCallback(window, Tools::dispatchToTool);
 
     return true;
+}
+
+void Interface::setupStyle() {
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.FrameRounding = 5.f;
+    style.WindowRounding = 5.f;
 }
 
 bool Interface::initOpengl() {
@@ -80,6 +90,8 @@ void Interface::setupImgui() {
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
+
+    this->setupStyle();
     ImGui::StyleColorsDark();
 }
 
@@ -131,7 +143,7 @@ void Interface::startMainLoop() {
     static const int allowed_threads[] = {1, 2, 4};
     static int selected_index = 0;
     static int n_threads = 1;
-    static glm::vec3 centroid; // a temporary
+    static glm::vec3 centroid = glm::vec3(0); // a temporary
 
     while (!glfwWindowShouldClose(window)) {
         // Start ImGui frame
@@ -219,6 +231,7 @@ void Interface::startMainLoop() {
             if (MarchingCubes::marched.test() && !rendered) {
                 rendered = true;
                 Scene scene;
+                scene.centroid = centroid;
 
                 // for debugging
                 auto now = std::chrono::high_resolution_clock::now();
