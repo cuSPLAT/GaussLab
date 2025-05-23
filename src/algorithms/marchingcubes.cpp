@@ -1,5 +1,6 @@
 #include "marchingcubes.h"
-#include "../debug_utils.h"
+
+#include <debug_utils.h>
 
 #include <chrono>
 #include <cstdint>

@@ -1,7 +1,8 @@
 #define GLFW_INCLUDE_NONE
 
 #include "callbacks.h"
-#include "renderer.h"
+
+#include <core/renderer.h>
 
 #include <GLFW/glfw3.h>
 

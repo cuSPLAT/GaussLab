@@ -5,7 +5,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 
-#include "main_interface.h"
+#include <interface/main_interface.h>
 
 int main() {
 

@@ -1,12 +1,13 @@
 #include "main_interface.h"
-#include "algorithms/marchingcubes.h"
-#include "nfd.h"
-#include "renderer.h"
-#include "scene_loader.h"
-#include "callbacks.h"
-#include "debug_utils.h"
 
-#include "tools/tools.h"
+#include <algorithms/marchingcubes.h>
+#include "nfd.h"
+#include <core/scene_loader.h>
+#include <interface/callbacks.h>
+
+#include <debug_utils.h>
+
+#include <tools/tools.h>
 
 #include <chrono>
 #include <glm/fwd.hpp>

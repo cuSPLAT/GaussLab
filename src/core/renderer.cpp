@@ -1,9 +1,8 @@
-#include "renderer.h"
-#include "shaders.h"
-#include "camera.h"
-#include "cuda/render_utils.h"
-#include "cuda/debug_utils.h"
-#include "algorithms/marchingcubes.h"
+#include <core/renderer.h>
+#include <core/shaders.h>
+
+#include <cuda/render_utils.h>
+#include <cuda/debug_utils.h>
 
 #include <cstddef>
 #include <chrono>

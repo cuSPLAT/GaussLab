@@ -13,8 +13,8 @@
 
 #include <cuda_gl_interop.h>
 
-#include "camera.h"
-#include "algorithms/marchingcubes.h"
+#include <core/camera.h>
+#include <algorithms/marchingcubes.h>
 
 struct Scene {
     std::unique_ptr<float[]> sceneDataBuffer;

@@ -7,8 +7,8 @@
 
 #include <nfd.hpp>
 
-#include "renderer.h"
-#include "data_reader/dicom_reader.h"
+#include <core/renderer.h>
+#include <data_reader/dicom_reader.h>
 
 class Interface {
     GLFWwindow* window;

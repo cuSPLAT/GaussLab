@@ -31,20 +31,29 @@ set(IMGUI_SOURCES
 
 )
 
-set(PROJECT_SOURCES 
-    "src/main.cpp"
-    "src/renderer.cpp"
-    "src/shaders.cpp"
-    "src/camera.cpp"
-    "src/debug_utils.cpp"
-    "src/main_interface.cpp"
-    "src/scene_loader.cpp"
-    "src/callbacks.cpp"
+set(INTERFACE_SRC
+    "src/interface/callbacks.cpp"
+    "src/interface/main_interface.cpp"
+)
+
+set(CORE
+    "src/core/renderer.cpp"
+    "src/core/shaders.cpp"
+    "src/core/camera.cpp"
+    "src/core/scene_loader.cpp"
+)
+
+set(TOOLS
     "src/tools/tools.cpp"
     "src/tools/meshslicing.cpp"
-    "src/data_reader/dicom_reader.cpp"
-    "src/cuda/render_utils.cu"
+)
+
+set(ALGORITHMS
     "src/algorithms/marchingcubes.cpp"
+)
+
+set(DATA_READER
+    "src/data_reader/dicom_reader.cpp"
 )
 
 include_directories(SYSTEM "external/glad/include")
@@ -52,17 +61,26 @@ include_directories(SYSTEM "external/imgui")
 include_directories(SYSTEM "external/happly")
 include_directories(SYSTEM "external/nativefiledialog/src/include")
 include_directories(SYSTEM "external/imgui/backends")
-include_directories(SYSTEM "external/Tigre")
 include_directories(SYSTEM "external/vega/include")
 include_directories(SYSTEM "external/RadixSort")
 
 add_executable(
     GausStudio
+    "src/main.cpp"
+    "src/debug_utils.cpp"
     ${PROJECT_SOURCES}
     ${IMGUI_SOURCES}
+    ${INTERFACE_SRC}
+    ${CORE}
+    ${TOOLS}
+    ${ALGORITHMS}
+    ${DATA_READER}
     "external/glad/src/glad.c"
 )
-target_include_directories(GausStudio PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+target_include_directories(GausStudio
+    PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 target_link_libraries(GausStudio "${TORCH_LIBRARIES}")
 target_link_libraries(GausStudio Threads::Threads)
 

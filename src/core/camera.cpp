@@ -1,6 +1,6 @@
 #include <cmath>
 #include <glm/ext/matrix_clip_space.hpp>
-#include <iostream>
+
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/fwd.hpp>
@@ -11,7 +11,6 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "camera.h"
-#include "renderer.h"
 
 Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) {
     cameraPos = glm::vec3(5.0f, 5.0f, 10.0f);
