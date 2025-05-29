@@ -11,10 +11,11 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "camera.h"
+#include "core/renderer.h"
 
 Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) {
-    cameraPos = glm::vec3(5.0f, 5.0f, 10.0f);
-    cameraTarget = glm::vec3(0.0f, 0.0f, 1.0f);
+    cameraPos = glm::vec3(0.0f, 0.0f, 1.0f);
+    cameraTarget = glm::vec3(0.0f, 0.0f, -1.0f);
     cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     view = glm::lookAt(
         cameraPos, cameraPos + cameraTarget, cameraUp
@@ -74,6 +75,9 @@ GLfloat* Camera::getVectorPtr() {
 }
 
 void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
+    if (!(::globalState.in_view_mode))
+        return;
+
     static float lastX = xpos, lastY = ypos;
     static float xoffset = xpos - lastX;
     static float yoffset = lastY - ypos;
@@ -102,7 +106,7 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
         localPitch += yoffset;
 
         view = glm::scale(glm::mat4(1.0f), glm::vec3(0.0001));
-        view = glm::translate(view, -sceneCentroid);
+        view = glm::translate(view, glm::vec3(-sceneCentroid.x, 0.4 * -sceneCentroid.y, -sceneCentroid.z));
         //glm::mat4 xRot = glm::rotate(translateToOrigin, glm::radians(localYaw), glm::vec3(0.0f, 1.0f, 0.0f));
         //glm::mat4 yRot = glm::rotate(xRot, glm::radians(localPitch), glm::vec3(1.0f, 0.0f, 0.0f));
         //view = glm::translate(yRot, -1.0f * sceneCentroid);

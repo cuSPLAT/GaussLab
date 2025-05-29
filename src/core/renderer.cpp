@@ -148,6 +148,8 @@ void Renderer::constructScene(Scene* scene, std::vector<Vertex>& vertices) {
     // Temporary normals
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+    const GLuint optional = glGetUniformLocation(shaderProgram, "planeExists");
+    glUniform1i(optional, false);
     //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
     //glEnableVertexAttribArray(1);
 
@@ -218,7 +220,7 @@ void Renderer::render(GLFWwindow* window) {
 
     glDisable(GL_RASTERIZER_DISCARD);
 
-    if (globalState.sortingEnabled) {
+    if (::globalState.sortingEnabled) {
     //TIME_SANDWICH_START(CUDA_INTEROP)
         //cudaGraphicsMapResources(4, cu_buffers);
 
@@ -246,7 +248,8 @@ void Renderer::render(GLFWwindow* window) {
     //if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
     glUseProgram(shaderProgram);
     camera.registerView(shaderProgram);
-    glDrawArrays(globalState.debugMode, 0, verticesCount);
+    //TODO: pls dont forget
+    glDrawArrays(::globalState.debugMode, 0, verticesCount);
     //} else {
     //    glUseProgram(gaussRenProgram);
     //    camera.registerView(gaussRenProgram);

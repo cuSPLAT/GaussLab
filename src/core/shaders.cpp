@@ -12,6 +12,7 @@ const char* Shaders::vertexShader = R"(
     out vec3 Normal;
     out vec3 FragPos;
     out vec3 vertexColor;
+    out vec3 WorldPos;
     
     uniform mat4 view;
     uniform mat4 projection;
@@ -20,6 +21,7 @@ const char* Shaders::vertexShader = R"(
         gl_Position = projection * view * vec4(aPos, 1.0f);
         FragPos = vec3(view * vec4(aPos, 1.0f));
         vertexColor = vec3(0.94f, 0.9f, 0.69f);
+        WorldPos = aPos;
         Normal = normalize(aNormal);
     }
 )";
@@ -29,10 +31,19 @@ const char* Shaders::fragmentShader = R"(
     in vec3 vertexColor;
     in vec3 Normal;
     in vec3 FragPos;
+    in vec3 WorldPos;
 
     out vec4 FragColor;
 
+    uniform bool planeExists;
+    uniform vec4 planeData;
+
     void main() {
+        if (planeExists) {
+            if (dot(vec3(planeData), WorldPos) + planeData.w >= 0) {
+                discard;
+            }
+        }
         vec3 lightDir = normalize(vec3(0, 0, 0) - FragPos);
 
         float diff = max(dot(Normal, lightDir), 0.0);

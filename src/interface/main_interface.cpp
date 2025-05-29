@@ -1,6 +1,7 @@
 #include "main_interface.h"
 
 #include <algorithms/marchingcubes.h>
+#include "core/renderer.h"
 #include "nfd.h"
 #include <core/scene_loader.h>
 #include <interface/callbacks.h>
@@ -61,6 +62,7 @@ bool Interface::setupWindow() {
     //-------------------- Callbacks -----------------------
     glfwSetCursorPosCallback(window, Callbacks::mouse_callback);
     glfwSetScrollCallback(window, Callbacks::scroll_callback);
+    glfwSetKeyCallback(window, Callbacks::key_callback);
     glfwSetMouseButtonCallback(window, Tools::dispatchToTool);
 
     return true;
@@ -117,13 +119,22 @@ void Interface::setupRenderer() {
 }
 
 void Interface::createViewWindow() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
     if (ImGui::Begin("View")) {
-        ImVec2 viewSize = ImGui::GetWindowSize();
-        //TODO: don't always update, just update when window size changes
-        renderer->getCamera()->updateViewport(viewSize.x, viewSize.y, renderer->shaderProgram);
-        ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize, ImVec2(0,1), ImVec2(1, 0));
+        if(ImGui::BeginChild("Render")) {
+            if (ImGui::IsWindowHovered()) ::globalState.windowHovered = true;
+            else globalState.windowHovered = false;
+
+            ImVec2 viewSize = ImGui::GetWindowSize();
+            //TODO: don't always update, just update when window size changes
+            renderer->getCamera()->updateViewport(viewSize.x, viewSize.y, renderer->shaderProgram);
+            ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize);
+        }
+        ImGui::EndChild();
     }
     ImGui::End();
+    ImGui::PopStyleVar(2);
 }
 
 Interface::~Interface() {
@@ -320,15 +331,18 @@ void Interface::createDockSpace() {
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
     ImGui::SetNextWindowViewport(viewport->ID);
+
     window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
                     ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
     window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
     if (ImGui::Begin("DockSpace Window", nullptr, window_flags)) {
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(4);
 
         // Define the dock space
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");

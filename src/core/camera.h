@@ -8,7 +8,6 @@
 #include <GLFW/glfw3.h>
 
 class Camera {
-    glm::vec3 cameraPos, cameraUp, cameraTarget;
     glm::vec3 direction;
     glm::vec3 sceneCentroid;
 
@@ -19,6 +18,7 @@ class Camera {
     GLfloat* posVector;
 
 public:
+    glm::vec3 cameraPos, cameraUp, cameraTarget;
     // Probably it is better to make them public in the 
     // renderer, but leave it for later
     int width, height;
