@@ -28,12 +28,12 @@ GlobalState globalState;
 Renderer::Renderer(int width, int height):
     width(width), height(height), camera(width, height) {}
 
-void Renderer::initializeRendererBuffer() {
-    glGenFramebuffers(1, &frameBuffer);
+void Renderer::newRenderBuffer() {
+    glGenFramebuffers(1, &frameBuffers[n_created]);
 
     // the texture that will act as a color buffer for rendering
-    glGenTextures(1, &rendererBuffer);
-    glBindTexture(GL_TEXTURE_2D, rendererBuffer);
+    glGenTextures(1, &rendererBuffers[n_created]);
+    glBindTexture(GL_TEXTURE_2D, rendererBuffers[n_created]);
     glTexImage2D(
         GL_TEXTURE_2D, 0, GL_RGB, width, height, 0,
         GL_RGB, GL_UNSIGNED_BYTE, nullptr
@@ -44,9 +44,9 @@ void Renderer::initializeRendererBuffer() {
 
     // attach the texture as a color buffer, the texture here acts just as
     // data buffer
-    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffers[n_created]);
     glFramebufferTexture2D(
-        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rendererBuffer, 0
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rendererBuffers[n_created], 0
     );
 
     GLuint depth;
@@ -60,12 +60,12 @@ void Renderer::initializeRendererBuffer() {
 
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    n_created++;
 
-    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
 }
 
-GLuint Renderer::getRenderBuffer() {
-    return rendererBuffer;
+GLuint Renderer::getRenderBuffer(int id) {
+    return rendererBuffers[id];
 }
 
 void Renderer::generateInitialBuffers() {
@@ -135,7 +135,7 @@ void Renderer::generateInitialBuffers() {
 
 }
 
-void Renderer::constructScene(Scene* scene, std::vector<Vertex>& vertices) {
+void Renderer::constructMeshScene(Scene* scene, std::vector<Vertex>& vertices) {
     verticesCount = vertices.size() / 2;
     camera.setCentroid(scene->centroid);
     camera.registerView(shaderProgram);
@@ -156,62 +156,72 @@ void Renderer::constructScene(Scene* scene, std::vector<Vertex>& vertices) {
     std::cout << "Current vertices count " << verticesCount << std::endl;
     std::cout << "Total buffer size in bytes " << vertices.size() * 3 << std::endl;
 
+   glEnable(GL_DEPTH_TEST);
+    //TODO: understand this
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void Renderer::constructSplatScene(Scene* scene) {
     // the data of the rectangle that a Gaussian will occupy
-    //glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-    //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-    //glEnableVertexAttribArray(2);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
 
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
-    //// -----------------------------------------------
-    //
-    //glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthBuffer_gl);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(float), NULL, GL_DYNAMIC_READ);
-    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, depthBuffer_gl);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
+    // -----------------------------------------------
+    
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthBuffer_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(float), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, depthBuffer_gl);
 
-    //glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthIndices_gl);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(int), NULL, GL_DYNAMIC_READ);
-    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, depthIndices_gl);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthIndices_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(int), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, depthIndices_gl);
 
-    //glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthBuffer_gl);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(float), NULL, GL_DYNAMIC_READ);
-    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sorted_depthBuffer_gl);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthBuffer_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(float), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sorted_depthBuffer_gl);
 
-    //glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthIndices_gl);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(int), NULL, GL_DYNAMIC_READ);
-    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, sorted_depthIndices_gl);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthIndices_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, verticesCount * sizeof(int), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, sorted_depthIndices_gl);
 
-    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&depth_buffer, depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
-    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&index_buffer, depthIndices_gl, cudaGraphicsRegisterFlagsNone), true)
-    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_depth_buffer, sorted_depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
-    //CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_index_buffer, sorted_depthIndices_gl, cudaGraphicsRegisterFlagsNone),true)
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&depth_buffer, depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&index_buffer, depthIndices_gl, cudaGraphicsRegisterFlagsNone), true)
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_depth_buffer, sorted_depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_index_buffer, sorted_depthIndices_gl, cudaGraphicsRegisterFlagsNone),true)
 
-    // *Ugly ahh code*
+    //*Ugly ahh code*
     cu_buffers[0] = depth_buffer;
     cu_buffers[1] = index_buffer;
     cu_buffers[2] = sorted_depth_buffer;
     cu_buffers[3] = sorted_index_buffer;
 
     //TODO: When you are sure everything works, don't use VBOs for Gaussian data anymore
-    //glBindBuffer(GL_SHADER_STORAGE_BUFFER, gaussianDataBuffer);
-    //glBufferData(GL_SHADER_STORAGE_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
-    //glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
-
-    glEnable(GL_DEPTH_TEST);
-    //TODO: understand this
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, gaussianDataBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
 }
 
 Camera* Renderer::getCamera() {
     return &camera;
 }
 
+void Renderer::selectFrameBuffer(int id) {
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffers[id]);
+}
+
 void Renderer::render(GLFWwindow* window) {
     camera.handleInput(window);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    for (int i = 0; i < n_created; i++) {
+        selectFrameBuffer(i);
+    }
+
+    selectFrameBuffer(0);
     // We aren't drawing anything, just computing
     glEnable(GL_RASTERIZER_DISCARD);
     glUseProgram(veryRealComputeProgram);

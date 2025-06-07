@@ -1,5 +1,4 @@
-#ifndef CAMERA_H
-#define CAMERA_H
+#pragma once
 
 #define GLFW_INCLUDE_NONE
 
@@ -44,4 +43,3 @@ public:
     void updateView();
 };
 
-#endif

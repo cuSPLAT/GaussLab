@@ -34,6 +34,7 @@ set(IMGUI_SOURCES
 set(INTERFACE_SRC
     "src/interface/callbacks.cpp"
     "src/interface/main_interface.cpp"
+    "src/interface/viewport.cpp"
 )
 
 set(CORE

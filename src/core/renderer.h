@@ -1,5 +1,4 @@
-#ifndef RENDERER_H
-#define RENDERER_H
+#pragma once
 
 #include <cstdint>
 #include <imgui.h>
@@ -48,8 +47,11 @@ class Renderer {
 
     GLuint VBO, VAO;
     GLuint quadVBO, quadEBO;
-    GLuint frameBuffer;
-    GLuint rendererBuffer;
+
+    // A limit of 5 views for now
+    GLuint frameBuffers[5];
+    GLuint rendererBuffers[5];
+    int n_created = 0;
 
     // complete data of the Gaussians;
     GLuint gaussianDataBuffer;
@@ -75,17 +77,19 @@ public:
     ~Renderer();
 
     void generateInitialBuffers();
-    void initializeRendererBuffer();
+    void newRenderBuffer();
+    void selectFrameBuffer(int id);
     // I will do a getter later
     GLuint shaderProgram, veryRealComputeProgram;
     GLuint gaussRenProgram;
 
-    void constructScene(Scene* scene, std::vector<Vertex>& vertices);
-    GLuint getRenderBuffer();
+    void constructMeshScene(Scene* scene, std::vector<Vertex>& vertices);
+    void constructSplatScene(Scene* scene);
+
+    GLuint getRenderBuffer(int id);
 
     Camera* getCamera();
 
     void render(GLFWwindow* window);
 };
 
-#endif

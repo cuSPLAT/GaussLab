@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -37,7 +38,6 @@ public:
 
 
     void createMenuBar();
-    void createViewWindow();
     void createDockSpace();
 
 };

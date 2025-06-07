@@ -1,3 +1,5 @@
+#pragma once
+
 #include <glm/fwd.hpp>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>

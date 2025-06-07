@@ -4,7 +4,9 @@
 #include "core/renderer.h"
 #include "nfd.h"
 #include <core/scene_loader.h>
+#include <cstdio>
 #include <interface/callbacks.h>
+#include <interface/viewport.h>
 
 #include <debug_utils.h>
 
@@ -23,6 +25,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui.h>
+
 
 Interface::Interface() = default;
 
@@ -81,7 +84,7 @@ bool Interface::initOpengl() {
         glfwTerminate();
         return false;
     }
-
+    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
     return true;
 }
 
@@ -114,28 +117,10 @@ std::string Interface::openFileDialog() {
 }
 
 void Interface::setupRenderer() {
-    renderer->initializeRendererBuffer();
+    renderer->newRenderBuffer();
     renderer->generateInitialBuffers();
 }
 
-void Interface::createViewWindow() {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-    if (ImGui::Begin("View")) {
-        if(ImGui::BeginChild("Render")) {
-            if (ImGui::IsWindowHovered()) ::globalState.windowHovered = true;
-            else globalState.windowHovered = false;
-
-            ImVec2 viewSize = ImGui::GetWindowSize();
-            //TODO: don't always update, just update when window size changes
-            renderer->getCamera()->updateViewport(viewSize.x, viewSize.y, renderer->shaderProgram);
-            ImGui::Image((ImTextureID)renderer->getRenderBuffer(), viewSize);
-        }
-        ImGui::EndChild();
-    }
-    ImGui::End();
-    ImGui::PopStyleVar(2);
-}
 
 Interface::~Interface() {
     ImGui_ImplOpenGL3_Shutdown();
@@ -157,6 +142,9 @@ void Interface::startMainLoop() {
     static int n_threads = 1;
     static glm::vec3 centroid = glm::vec3(0); // a temporary
 
+    // The main initial viewport
+    Viewport::newViewport();
+
     while (!glfwWindowShouldClose(window)) {
         // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -168,7 +156,8 @@ void Interface::startMainLoop() {
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
         ImGui::SetNextWindowDockID(dockspace_id, ImGuiCond_FirstUseEver);
 
-        createViewWindow();
+        // ----------------------------- Drawing ------------------------
+        Viewport::drawViewports_ImGui(renderer);
 
         if (ImGui::Begin("Debug")) {
             ImGui::InputScalar(
@@ -250,7 +239,7 @@ void Interface::startMainLoop() {
                 std::chrono::duration<double, std::milli> duration = now - MarchingCubes::last_iter_timer;
                 mc_duration = duration.count();
 
-                renderer->constructScene(&scene, MarchingCubes::OutputVertices);
+                renderer->constructMeshScene(&scene, MarchingCubes::OutputVertices);
                 for (int i = 0; i < MarchingCubes::num_threads; i++)
                     MarchingCubes::TemporaryBuffers[i].clear();
             }
@@ -284,7 +273,7 @@ void Interface::createMenuBar() {
                 std::string path = openFileDialog();
 
                 Scene* pcd = PLYLoader::loadPLy(path);
-                //renderer->constructScene(pcd);
+                renderer->constructSplatScene(pcd);
                 delete pcd;
             }
             if (ImGui::MenuItem("Load DICOM Directory")) {
@@ -303,6 +292,14 @@ void Interface::createMenuBar() {
                     //TODO: choose export path
                     DebugUtils::exportObj("output.obj", MarchingCubes::OutputVertices);
                 }
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("View")) {
+            if (ImGui::MenuItem("New Viewport")) {
+                // A maximum of 5 windows is allowed
+                if (Viewport::n_viewports != MAX_VIEWPORTS)
+                    Viewport::newViewport();
             }
             ImGui::EndMenu();
         }

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <atomic>
 #define DEFAULT_DICOM_DICTIONARY "/home/Abdelrahman/projects/gradproject/GausStudio/dictionary.txt"
 

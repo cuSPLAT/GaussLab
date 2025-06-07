@@ -111,12 +111,12 @@ void MarchingCubes::marching_cubes(
                     TemporaryBuffers[thread_idx].push_back({
                         (interpolated_p.x - width) / width,
                         -(interpolated_p.z - height) / height,
-                        -(interpolated_p.y - length) / length
+                        (interpolated_p.y - length) / length
                     });
                     TemporaryBuffers[thread_idx].push_back({dx, dy, dz});
 
                     local_centroid.x += (interpolated_p.x - width) / width;
-                    local_centroid.z -= (interpolated_p.y - length) / length;
+                    local_centroid.z += (interpolated_p.y - length) / length;
                     local_centroid.y -= (interpolated_p.z - height) / height;
                 }
             }
