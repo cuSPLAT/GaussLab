@@ -1,4 +1,5 @@
 #include "tools.h"
+#include <iostream>
 #include "meshslicing.h"
 #include <GLFW/glfw3.h>
 
@@ -10,6 +11,7 @@ namespace Tools {
 AvailableTools activeTool = AvailableTools::Slicing;
 
 void dispatchToTool(GLFWwindow* window, int button, int action, int mod) {
+    std::cout << ::globalState.selectedViewport << std::endl;
     if (!(::globalState.windowHovered))
         return;
 

@@ -49,6 +49,10 @@ set(TOOLS
     "src/tools/meshslicing.cpp"
 )
 
+set(CUDA_UTILS
+    "src/cuda/render_utils.cu"
+)
+
 set(ALGORITHMS
     "src/algorithms/marchingcubes.cpp"
 )
@@ -76,6 +80,7 @@ add_executable(
     ${TOOLS}
     ${ALGORITHMS}
     ${DATA_READER}
+    ${CUDA_UTILS}
     "external/glad/src/glad.c"
 )
 target_include_directories(GausStudio

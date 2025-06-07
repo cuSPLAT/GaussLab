@@ -59,7 +59,7 @@ bool Interface::setupWindow() {
 
     renderer = new Renderer(width, height);
     // so we can access the renderer from the callbacks
-    glfwSetWindowUserPointer(window, renderer);
+    glfwSetWindowUserPointer(window, Viewport::viewports);
 
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     //-------------------- Callbacks -----------------------
@@ -117,7 +117,6 @@ std::string Interface::openFileDialog() {
 }
 
 void Interface::setupRenderer() {
-    renderer->newRenderBuffer();
     renderer->generateInitialBuffers();
 }
 
@@ -143,7 +142,7 @@ void Interface::startMainLoop() {
     static glm::vec3 centroid = glm::vec3(0); // a temporary
 
     // The main initial viewport
-    Viewport::newViewport();
+    Viewport::newViewport(width, height);
 
     while (!glfwWindowShouldClose(window)) {
         // Start ImGui frame
@@ -299,7 +298,7 @@ void Interface::createMenuBar() {
             if (ImGui::MenuItem("New Viewport")) {
                 // A maximum of 5 windows is allowed
                 if (Viewport::n_viewports != MAX_VIEWPORTS)
-                    Viewport::newViewport();
+                    Viewport::newViewport(width, height);
             }
             ImGui::EndMenu();
         }

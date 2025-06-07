@@ -24,7 +24,7 @@ Camera::Camera(int width, int height): width(width), height(height), fov(45.0f) 
     yaw = -90.0f, pitch = 0.0f;
 
     // This is just a matrix to test with
-    projection = glm::perspective(glm::radians(45.0f), width / (float)height, 3.f, 30.f);
+    projection = glm::perspective(glm::radians(45.0f), width / (float)height, 0.1f, 30.f);
 
     posVector = new GLfloat[16];
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include <glm/fwd.hpp>
 #define MAX_VIEWPORTS 5
 
 #include <memory>
@@ -13,14 +14,22 @@ struct Viewport {
     static unsigned int n_viewports;
     
     static void drawViewports_ImGui(Renderer* renderer);
-    static void newViewport();
+    static void newViewport(int width, int height);
+
+    static void renderOnViewport(int i);
 
     const char* viewport_id;
     std::unique_ptr<Camera> view_camera;
     bool mesh = true;
 
+    glm::vec4 viewportPosData;
+
+    int m_width, m_height;
     GLuint frameBuffer, frameBufferTexture;
 
 private:
-    Viewport();
+    Viewport() = default;
+
+    Viewport(int width, int height);
+    void allocateFrameBuffer();
 };

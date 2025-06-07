@@ -1,3 +1,4 @@
+#include "interface/viewport.h"
 #define GLFW_INCLUDE_NONE
 
 #include "callbacks.h"
@@ -7,8 +8,12 @@
 #include <GLFW/glfw3.h>
 
 void Callbacks::mouse_callback(GLFWwindow *window, double xpos, double ypos) {
-    Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
-    renderer->getCamera()->calculateDirection(window, xpos, ypos);
+    Viewport* viewports = static_cast<Viewport*>(glfwGetWindowUserPointer(window));
+
+    // TODO: Instead of doing a for loop on all of them, just save the
+    // id of the hovered viewport and manage it alone
+    for (int i = 0; i < Viewport::n_viewports; i++)
+        Viewport::viewports[i].view_camera->calculateDirection(window, xpos, ypos);
 }
 
 void Callbacks::scroll_callback(GLFWwindow *window, double xoffset, double yoffset) {

@@ -32,10 +32,15 @@ struct GlobalState {
     };
 
     // write from GUI only
-    RenderMode renderingMode = RenderMode::PCD;
-    bool sortingEnabled = false;
+    RenderMode renderingMode = RenderMode::Splats;
+    bool sortingEnabled = true;
     bool windowHovered = false;
     bool in_view_mode = true;
+
+    // on start the first viewport is selected
+    int selectedViewport = 0;
+
+    GLuint vertexProgram, gaussianProgram;
 
     GLuint debugMode = GL_TRIANGLES;
 };
@@ -48,11 +53,6 @@ class Renderer {
     GLuint VBO, VAO;
     GLuint quadVBO, quadEBO;
 
-    // A limit of 5 views for now
-    GLuint frameBuffers[5];
-    GLuint rendererBuffers[5];
-    int n_created = 0;
-
     // complete data of the Gaussians;
     GLuint gaussianDataBuffer;
 
@@ -63,30 +63,29 @@ class Renderer {
     cudaGraphicsResource_t depth_buffer, index_buffer;
     cudaGraphicsResource_t sorted_depth_buffer, sorted_index_buffer;
     cudaGraphicsResource_t cu_buffers[4];
+    bool gaussianSceneCreated = false;
 
     Camera camera;
     unsigned int width, height;
 
+    void processGaussianSplats(int i);
 
 // for public variables, to make the code cleaner
 public:
-     unsigned int verticesCount = 0;
+    unsigned int verticesCount = 0;
+    unsigned int gaussiansCount = 0;
 
 public:
     Renderer(int width, int height);
     ~Renderer();
 
     void generateInitialBuffers();
-    void newRenderBuffer();
-    void selectFrameBuffer(int id);
     // I will do a getter later
     GLuint shaderProgram, veryRealComputeProgram;
     GLuint gaussRenProgram;
 
     void constructMeshScene(Scene* scene, std::vector<Vertex>& vertices);
     void constructSplatScene(Scene* scene);
-
-    GLuint getRenderBuffer(int id);
 
     Camera* getCamera();
 
