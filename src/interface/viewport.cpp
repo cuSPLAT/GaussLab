@@ -55,8 +55,8 @@ void Viewport::allocateFrameBuffer() {
     glGenTextures(1, &depth);
     glBindTexture(GL_TEXTURE_2D, depth);
     glTexImage2D(
-    GL_TEXTURE_2D, 0, GL_DEPTH32F_STENCIL8, m_width, m_height, 0, 
-    GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr
+        GL_TEXTURE_2D, 0, GL_DEPTH32F_STENCIL8, m_width, m_height, 0, 
+        GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, nullptr
     );
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
 

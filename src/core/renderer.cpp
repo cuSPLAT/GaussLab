@@ -28,7 +28,7 @@ int Renderer::quadIndices[6] = {
 GlobalState globalState;
 
 Renderer::Renderer(int width, int height):
-    width(width), height(height), camera(width, height) {}
+    width(width), height(height) {}
 
 void Renderer::generateInitialBuffers() {
     glGenVertexArrays(1, &VAO);
@@ -100,12 +100,8 @@ void Renderer::generateInitialBuffers() {
 
 }
 
-void Renderer::constructMeshScene(Scene* scene, std::vector<Vertex>& vertices) {
+void Renderer::constructMeshScene(std::vector<Vertex>& vertices) {
     verticesCount = vertices.size() / 2;
-    
-    for (int i = 0; i < Viewport::n_viewports; i++) {
-        Viewport::viewports[i].view_camera->setCentroid(scene->centroid);
-    }
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
@@ -130,6 +126,15 @@ void Renderer::constructSplatScene(Scene* scene) {
     }
     gaussiansCount = scene->verticesCount;
     newScene = true;
+
+    // this part is just extra memory used, this could be optimized to only use the
+    // means, or even better a single cuda kernel or a compute shader
+    GLuint gaussianMeans;
+    glGenBuffers(1, &gaussianMeans);
+    glBindBuffer(GL_ARRAY_BUFFER, gaussianMeans);
+    glBufferData(GL_ARRAY_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(3);
 
     // the data of the rectangle that a Gaussian will occupy
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
@@ -180,16 +185,12 @@ void Renderer::constructSplatScene(Scene* scene) {
     gaussianSceneCreated = true;
 }
 
-Camera* Renderer::getCamera() {
-    return &camera;
-}
-
 void Renderer::processGaussianSplats(int i) {
     // We aren't drawing anything, just computing
     glEnable(GL_RASTERIZER_DISCARD);
 
     glUseProgram(veryRealComputeProgram);
-    Viewport::viewports[i].view_camera->registerView(veryRealComputeProgram);
+    Viewport::viewports[i].view_camera->registerModelView(veryRealComputeProgram);
     glDrawArrays(GL_POINTS, 0, gaussiansCount);
 
     glDisable(GL_RASTERIZER_DISCARD);
@@ -218,25 +219,26 @@ void Renderer::processGaussianSplats(int i) {
 }
 
 void Renderer::render(GLFWwindow* window) {
+    Viewport::viewports[::globalState.selectedViewport].view_camera->handleInput(window);
+
     for (int i = 0; i < Viewport::n_viewports; i++) {
         Viewport::renderOnViewport(i);
-        Viewport::viewports[i].view_camera->handleInput(window);
 
         if (Viewport::viewports[i].mesh) {
-            glEnable(GL_DEPTH);
+            glEnable(GL_DEPTH_TEST);
 
             glUseProgram(shaderProgram);
-            Viewport::viewports[i].view_camera->registerView(shaderProgram);
+            Viewport::viewports[i].view_camera->registerModelView(shaderProgram);
             //TODO: pls dont forget -- i forgot
             glDrawArrays(::globalState.debugMode, 0, verticesCount);
         } else {
-            glDisable(GL_DEPTH);
+            glDisable(GL_DEPTH_TEST);
 
             processGaussianSplats(i);
             if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
             } else {
                 glUseProgram(gaussRenProgram);
-                Viewport::viewports[i].view_camera->registerView(gaussRenProgram);
+                Viewport::viewports[i].view_camera->registerModelView(gaussRenProgram);
                 Viewport::viewports[i].view_camera->uploadIntrinsics(gaussRenProgram);
                 glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, gaussiansCount);
             }

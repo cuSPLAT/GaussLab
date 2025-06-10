@@ -8,10 +8,9 @@
 namespace Tools {
 
 // For now we only have a slicing tool
-AvailableTools activeTool = AvailableTools::Slicing;
+AvailableTools activeTool = AvailableTools::None;
 
 void dispatchToTool(GLFWwindow* window, int button, int action, int mod) {
-    std::cout << ::globalState.selectedViewport << std::endl;
     if (!(::globalState.windowHovered))
         return;
 

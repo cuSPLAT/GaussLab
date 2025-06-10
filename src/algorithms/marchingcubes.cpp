@@ -139,6 +139,8 @@ void MarchingCubes::marching_cubes(
         centroid /= (OutputVertices.size() / 2);
         marched.test_and_set();
     }
+
+    MarchingCubes::TemporaryBuffers[thread_idx].clear();
 }
 
 void MarchingCubes::launchThreaded(

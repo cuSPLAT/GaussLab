@@ -65,7 +65,6 @@ class Renderer {
     cudaGraphicsResource_t cu_buffers[4];
     bool gaussianSceneCreated = false;
 
-    Camera camera;
     unsigned int width, height;
 
     void processGaussianSplats(int i);
@@ -84,10 +83,8 @@ public:
     GLuint shaderProgram, veryRealComputeProgram;
     GLuint gaussRenProgram;
 
-    void constructMeshScene(Scene* scene, std::vector<Vertex>& vertices);
+    void constructMeshScene(std::vector<Vertex>& vertices);
     void constructSplatScene(Scene* scene);
-
-    Camera* getCamera();
 
     void render(GLFWwindow* window);
 };

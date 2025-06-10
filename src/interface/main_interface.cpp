@@ -19,6 +19,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <glm/gtc/type_ptr.hpp>
 #include <nfd.hpp>
 #include <nfd_glfw3.h>
 
@@ -139,7 +140,7 @@ void Interface::startMainLoop() {
     static const int allowed_threads[] = {1, 2, 4};
     static int selected_index = 0;
     static int n_threads = 1;
-    static glm::vec3 centroid = glm::vec3(0); // a temporary
+    static glm::vec3 centroid {0}; // a temporary
 
     // The main initial viewport
     Viewport::newViewport(width, height);
@@ -150,6 +151,8 @@ void Interface::startMainLoop() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        //ImGui::ShowMetricsWindow();
+
         createMenuBar();
         createDockSpace();
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
@@ -157,6 +160,7 @@ void Interface::startMainLoop() {
 
         // ----------------------------- Drawing ------------------------
         Viewport::drawViewports_ImGui(renderer);
+        Viewport& selectedViewport = Viewport::viewports[::globalState.selectedViewport];
 
         if (ImGui::Begin("Debug")) {
             ImGui::InputScalar(
@@ -169,20 +173,15 @@ void Interface::startMainLoop() {
             if (ImGui::BeginTabBar("Main Tabs")) {
                 // Camera Point View Tab
                 if (ImGui::BeginTabItem("Camera Point View")) {
-                    static float* viewMat = renderer->getCamera()->getVectorPtr();
-                    renderer->getCamera()->getPositionFromShader(renderer->shaderProgram);
-                    float position[3] = {viewMat[12], viewMat[13], viewMat[14]};
-
                     ImGui::Text("Camera Position:");
-                    ImGui::InputFloat3("Position", position);
+                    ImGui::InputFloat3("Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
 
                     // Point cloud or Gaussian splatting view mode selection
-                    bool &scene_mode = renderer->getCamera()->scene;
-                    if (ImGui::RadioButton("Scene", scene_mode))
-                        scene_mode = true;
+                    if (ImGui::RadioButton("Scene", selectedViewport.view_camera->scene))
+                        selectedViewport.view_camera->scene = true;
                     ImGui::SameLine();
-                    if (ImGui::RadioButton("Object", !scene_mode))
-                        scene_mode = false;
+                    if (ImGui::RadioButton("Object", !selectedViewport.view_camera->scene))
+                        selectedViewport.view_camera->scene = false;
                     // ---------------------------------------------------
                     // Rendering mode selection
                     if (ImGui::BeginCombo("Render Mode", "select")) {
@@ -230,17 +229,15 @@ void Interface::startMainLoop() {
             static int mc_duration = 0;
             if (MarchingCubes::marched.test() && !rendered) {
                 rendered = true;
-                Scene scene;
-                scene.centroid = centroid;
-
                 // for debugging
                 auto now = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> duration = now - MarchingCubes::last_iter_timer;
                 mc_duration = duration.count();
 
-                renderer->constructMeshScene(&scene, MarchingCubes::OutputVertices);
-                for (int i = 0; i < MarchingCubes::num_threads; i++)
-                    MarchingCubes::TemporaryBuffers[i].clear();
+                renderer->constructMeshScene(MarchingCubes::OutputVertices);
+
+                for (int i = 0; i < Viewport::n_viewports; i++)
+                    Viewport::viewports[i].view_camera->setCentroid(centroid);
             }
             ImGui::Text("Last run: %d ms", mc_duration);
         }
@@ -286,19 +283,24 @@ void Interface::createMenuBar() {
                 launchPopup = true;
                 // ------------------------------------------------
             }
-            if (ImGui::MenuItem("Export OBJ")) {
-                if (MarchingCubes::marched.test()) {
-                    //TODO: choose export path
-                    DebugUtils::exportObj("output.obj", MarchingCubes::OutputVertices);
+            if (ImGui::BeginMenu("Export")) {
+                if (ImGui::MenuItem("Wavefront (.obj)")) {
+                    if (MarchingCubes::marched.test()) {
+                        //TODO: choose export path
+                        DebugUtils::exportObj("output.obj", MarchingCubes::OutputVertices);
+                    }
                 }
+                ImGui::EndMenu();
             }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("View")) {
             if (ImGui::MenuItem("New Viewport")) {
                 // A maximum of 5 windows is allowed
-                if (Viewport::n_viewports != MAX_VIEWPORTS)
+                if (Viewport::n_viewports != MAX_VIEWPORTS) {
                     Viewport::newViewport(width, height);
+                    //Viewport::viewports[Viewport::n_viewports].view_camera->setCentroid(centroid);
+                }
             }
             ImGui::EndMenu();
         }

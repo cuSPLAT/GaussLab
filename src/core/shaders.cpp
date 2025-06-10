@@ -15,10 +15,11 @@ const char* Shaders::vertexShader = R"(
     out vec3 WorldPos;
     
     uniform mat4 view;
+    uniform mat4 model;
     uniform mat4 projection;
 
     void main() {
-        gl_Position = projection * view * vec4(aPos, 1.0f);
+        gl_Position = projection * view * model * vec4(aPos, 1.0f);
         FragPos = vec3(view * vec4(aPos, 1.0f));
         vertexColor = vec3(0.94f, 0.9f, 0.69f);
         WorldPos = aPos;
@@ -56,7 +57,7 @@ const char* Shaders::fragmentShader = R"(
 
 const char* Shaders::viewMatMulCompute = R"(
     #version 460 core
-    layout (location = 0) in vec3 aPos;
+    layout (location = 3) in vec3 aPos;
     layout (std430, binding = 0) buffer gaussianDepth {
         float z_depth[];
     };
