@@ -30,7 +30,7 @@ void captureMousePos(GLFWwindow* window, int action) {
     glfwGetCursorPos(window, &xpos, &ypos);
     glm::vec3 worldSpaceMouse_tangent = glm::unProject(
         glm::vec3(xpos, ypos, 0.f),
-        this_viewport.view_camera->view,
+        this_viewport.view_camera->view * this_viewport.view_camera->model,
         this_viewport.view_camera->projection,
         this_viewport.viewportPosData
     );
@@ -44,13 +44,13 @@ void captureMousePos(GLFWwindow* window, int action) {
 
         const glm::vec3 ray_near = glm::unProject(
             glm::vec3(xpos, ypos, 0.f), 
-            this_viewport.view_camera->view,
+            this_viewport.view_camera->view * this_viewport.view_camera->model,
             this_viewport.view_camera->projection,
             this_viewport.viewportPosData
         );
         const glm::vec3 ray_far = glm::unProject(
             glm::vec3(xpos, ypos, 1.f),
-            this_viewport.view_camera->view,
+            this_viewport.view_camera->view * this_viewport.view_camera->model,
             this_viewport.view_camera->projection,
             this_viewport.viewportPosData
         );

@@ -3,6 +3,7 @@
 #include <algorithms/marchingcubes.h>
 #include "core/renderer.h"
 #include "nfd.h"
+#include <cmath>
 #include <core/scene_loader.h>
 #include <cstdio>
 #include <interface/callbacks.h>
@@ -10,6 +11,7 @@
 
 #include <debug_utils.h>
 
+#include <optional>
 #include <tools/tools.h>
 
 #include <chrono>
@@ -102,7 +104,7 @@ void Interface::setupImgui() {
     ImGui::StyleColorsDark();
 }
 
-std::string Interface::openFileDialog() {
+std::optional<std::string> Interface::openFileDialog() {
     nfdu8char_t* plyPath;
     
     nfdu8filteritem_t filters[1] = { { "PLY File", "ply" } };
@@ -110,11 +112,13 @@ std::string Interface::openFileDialog() {
     args.filterCount = 1;
 
     nfdresult_t result = NFD_OpenDialogU8_With(&plyPath, &args);
+    if (result == NFD_OKAY) {
+        std::string path(plyPath);
+        NFD_FreePathU8(plyPath);
+        return std::move(path);
+    }
 
-    std::string path(plyPath);
-    NFD_FreePathU8(plyPath);
-
-    return path;
+    return std::nullopt;
 }
 
 void Interface::setupRenderer() {
@@ -136,11 +140,17 @@ Interface::~Interface() {
 }
 
 void Interface::startMainLoop() {
-    static int primtiveStepCount = 1000;
-    static const int allowed_threads[] = {1, 2, 4};
-    static int selected_index = 0;
-    static int n_threads = 1;
-    static glm::vec3 centroid {0}; // a temporary
+    const int primtiveStepCount = 1000;
+    
+    // could be done with a range to be faster
+    const int log2_threads = std::log2(::globalState.available_threads) + 1;
+    std::vector<int> allowed_threads(log2_threads);
+    for (int i = 0; i < log2_threads; i++)
+        allowed_threads[i] = std::pow(2, i);
+    int selected_index = 0;
+    int n_threads = 1;
+
+    glm::vec3 centroid {0}; // a temporary
 
     // The main initial viewport
     Viewport::newViewport(width, height);
@@ -195,7 +205,14 @@ void Interface::startMainLoop() {
                         ImGui::EndCombo();
                     }
                     // ---------------------------------------------------
-                    ImGui::Checkbox("Sorting", &globalState.sortingEnabled);
+                    ImGui::Dummy(ImVec2(0.f, 10.f));
+                    ImGui::SeparatorText("Gaussian Splats");
+                    ImGui::Checkbox("Splat Sorting", &globalState.sortingEnabled);
+
+                    // -------------------- Toolbox----------------------
+                    ImGui::Dummy(ImVec2(0.f, 10.f));
+                    ImGui::SeparatorText("Tool Box");
+                    Tools::drawToolBox_ImGui();
                     ImGui::EndTabItem();
                 }
             }
@@ -207,14 +224,14 @@ void Interface::startMainLoop() {
         // --------------------- Marching Cubes -----------------
         static bool rendered = false;
         if (ImGui::Begin("Marching Cubes")) {
-            if (ImGui::SliderInt("Threads", &selected_index, 0, 2, ""))
+            if (ImGui::SliderInt("Threads", &selected_index, 0, log2_threads - 1, ""))
                 n_threads = allowed_threads[selected_index];
             ImGui::SameLine();
             ImGui::Text("%d", allowed_threads[selected_index]);
             if(ImGui::Button("March")) {
                 if (dcmReader.loadedData.readable.test()) {
                     rendered = false;
-                    DicomReader::DicomData& data = dcmReader.loadedData;
+                    const DicomReader::DicomData& data = dcmReader.loadedData;
 
                     MarchingCubes::marched.clear();
                     MarchingCubes::launchThreaded(
@@ -244,7 +261,6 @@ void Interface::startMainLoop() {
         // ------------------------------------------------------
         ImGui::End();
 
-        
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -265,22 +281,24 @@ void Interface::createMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open PLY file")) {
-                //TODO: error checking
-                std::string path = openFileDialog();
-
-                Scene* pcd = PLYLoader::loadPLy(path);
-                renderer->constructSplatScene(pcd);
-                delete pcd;
+                std::optional<std::string> path = openFileDialog();
+                if (path.has_value()) {
+                    Scene* pcd = PLYLoader::loadPLy(std::move(path.value()));
+                    renderer->constructSplatScene(pcd);
+                    delete pcd;
+                }
             }
             if (ImGui::MenuItem("Load DICOM Directory")) {
                 // ------------------ Folder select ----------------
                 nfdu8char_t* path;
                 nfdresult_t result = NFD_PickFolderU8(&path, nullptr);
 
-                std::string dir_path(path);
-                NFD_FreePathU8(path);
-                dcmReader.launchReaderThread(dir_path);
-                launchPopup = true;
+                if (result == NFD_OKAY) {
+                    std::string dir_path(path);
+                    NFD_FreePathU8(path);
+                    dcmReader.launchReaderThread(std::move(dir_path));
+                    launchPopup = true;
+                }
                 // ------------------------------------------------
             }
             if (ImGui::BeginMenu("Export")) {
@@ -297,10 +315,8 @@ void Interface::createMenuBar() {
         if (ImGui::BeginMenu("View")) {
             if (ImGui::MenuItem("New Viewport")) {
                 // A maximum of 5 windows is allowed
-                if (Viewport::n_viewports != MAX_VIEWPORTS) {
+                if (Viewport::n_viewports != MAX_VIEWPORTS)
                     Viewport::newViewport(width, height);
-                    //Viewport::viewports[Viewport::n_viewports].view_camera->setCentroid(centroid);
-                }
             }
             ImGui::EndMenu();
         }

@@ -1,4 +1,5 @@
 #include "tools.h"
+#include <imgui.h>
 #include <iostream>
 #include "meshslicing.h"
 #include <GLFW/glfw3.h>
@@ -25,6 +26,11 @@ void dispatchToTool(GLFWwindow* window, int button, int action, int mod) {
         default:
             break;
     }
+}
+
+void drawToolBox_ImGui() {
+    if (ImGui::Button("Slicing"))
+        activeTool = AvailableTools::Slicing;
 }
 
 };

@@ -14,7 +14,7 @@
 #include "core/renderer.h"
 
 Camera::Camera(int width, int height): width(width), height(height),
-    fov(45.0f), mouseData(0), model(1.0f)
+    fov(45.0f), mouseData(0), model(1.0f), sceneCentroid(0.f)
 {
     //TODO: changable from gui
     cameraPos = glm::vec3(0.0f, 0.0f, 1.0f);
@@ -37,7 +37,9 @@ void Camera::updateViewport(float width, float height, int shader) {
     this->width = width;
     this->height = height;
 
-    projection = glm::perspective(glm::radians(45.f), width/height, 0.01f, 5.f);
+    //NOTE: this is acutally slow, and it is better to have a different function
+    //that uplaods on zoom and another one that uploads viewport change
+    projection = glm::perspective(glm::radians(fov), width/height, 0.01f, 5.f);
     GLuint matrixLocation = glGetUniformLocation(shader, "projection");
     glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
 };
@@ -69,7 +71,6 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
     if (!(::globalState.in_view_mode))
         return;
 
-    
     mouseData.xoffset = xpos - mouseData.lastX;
     mouseData.yoffset = mouseData.lastY - ypos;
     mouseData.lastX = xpos;
@@ -109,8 +110,9 @@ void Camera::calculateZoom(double yoffset) {
         fov = 1.0f;
     if (fov > 89.0f)
         fov = 89.0f; 
-    
-    projection = glm::perspective(glm::radians(fov), 800.0f / 600.0f, 0.01f, 100.0f);
+
+    //NOTE: Put the upload on zoom here, but for now all of it is done in
+    //a single function at viewport update
 }
 
 void Camera::uploadIntrinsics(GLuint program) {

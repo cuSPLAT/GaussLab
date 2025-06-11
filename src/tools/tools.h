@@ -14,4 +14,5 @@ extern AvailableTools activeTool;
 
 void dispatchToTool(GLFWwindow* window, int button, int action, int mod);
 
+void drawToolBox_ImGui();
 };

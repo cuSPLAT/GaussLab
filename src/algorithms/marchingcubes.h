@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <chrono>
 #include <mutex>
-#include <unordered_map>
 #include <vector>
 #include <thread>
 
@@ -19,7 +18,6 @@ struct Vertex {
 namespace MarchingCubes {
 
     extern std::vector<std::thread> threads;
-    extern std::unordered_map<int, std::vector<Vertex>> TemporaryBuffers;
 
     extern std::vector<Vertex> OutputVertices;
     extern std::atomic_flag marched;

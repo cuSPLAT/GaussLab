@@ -8,8 +8,6 @@
 
 class Camera {
     glm::vec3 direction;
-    glm::vec3 sceneCentroid;
-
     glm::vec3 hfov_focal;
 
     float fov;
@@ -24,10 +22,11 @@ class Camera {
 
 public:
     glm::vec3 cameraPos, cameraUp, cameraTarget;
+    glm::vec3 sceneCentroid;
     // Probably it is better to make them public in the 
     // renderer, but leave it for later
     int width, height;
-    bool scene = true;
+    bool scene = false;
     glm::mat4 model, view, projection;
 
 public:

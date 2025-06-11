@@ -73,8 +73,14 @@ void Viewport::renderOnViewport(int i) {
 }
 
 void Viewport::newViewport(int width, int height) {
-    Viewport::viewports[Viewport::n_viewports] = Viewport(width, height);
-    Viewport::n_viewports++;
+    viewports[n_viewports] = Viewport(width, height);
+    // a cheeky way to do it
+    if (n_viewports > 0) {
+        viewports[n_viewports].view_camera->setCentroid(
+            viewports[n_viewports - 1].view_camera->sceneCentroid
+        );
+    }
+    n_viewports++;
 }
 
 // TODO: remove the renderer pointer. it is literally useless here

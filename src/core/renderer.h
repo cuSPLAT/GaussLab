@@ -39,6 +39,7 @@ struct GlobalState {
 
     // on start the first viewport is selected
     int selectedViewport = 0;
+    int available_threads = std::thread::hardware_concurrency();
 
     GLuint vertexProgram, gaussianProgram;
 

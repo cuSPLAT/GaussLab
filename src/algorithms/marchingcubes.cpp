@@ -11,12 +11,11 @@
 #include <mutex>
 #include <thread>
 #include <tuple>
-#include <unordered_map>
+#include <vector>
 
 typedef std::tuple<int, int, int> vec3; //  will be removed
 
 std::vector<Vertex> MarchingCubes::OutputVertices;
-std::unordered_map<int, std::vector<Vertex>> MarchingCubes::TemporaryBuffers = {{0, {}},{1, {}},{2, {}},{3, {}}};
 std::vector<std::thread> MarchingCubes::threads;
 
 decltype(std::chrono::high_resolution_clock::now()) MarchingCubes::last_iter_timer 
@@ -71,6 +70,8 @@ void MarchingCubes::marching_cubes(
     const int start_z = thread_idx * thread_stride;
     glm::vec3 local_centroid = glm::vec3(0);
 
+    std::vector<Vertex> TemporaryBuffer;
+
     for (int z = start_z; z < start_z + thread_stride && z < height - step; z += step) {
         for (int y = 0; y < length - step; y += step) {
             for (int x = 0; x < width - step; x += step) {
@@ -108,12 +109,12 @@ void MarchingCubes::marching_cubes(
                      - buffer[(int)x + (int)(y + 1.f) * width + (int)z * area]) * 0.5f;
                     float dz = (buffer[(int)x + (int)y * width + (int)(z - 0.5f) * area]
                      - buffer[(int)x + (int)y * width + (int)(z + 1.f) * area]) * 0.5f;
-                    TemporaryBuffers[thread_idx].push_back({
+                    TemporaryBuffer.push_back({
                         (interpolated_p.x - width) / width,
                         -(interpolated_p.z - height) / height,
                         (interpolated_p.y - length) / length
                     });
-                    TemporaryBuffers[thread_idx].push_back({dx, dy, dz});
+                    TemporaryBuffer.push_back({dx, dy, dz});
 
                     local_centroid.x += (interpolated_p.x - width) / width;
                     local_centroid.z += (interpolated_p.y - length) / length;
@@ -127,8 +128,8 @@ void MarchingCubes::marching_cubes(
         std::lock_guard<std::mutex> guard(vertex_mutex);
         OutputVertices.insert(
             OutputVertices.end(),
-            TemporaryBuffers[thread_idx].begin(),
-            TemporaryBuffers[thread_idx].end()
+            TemporaryBuffer.begin(),
+            TemporaryBuffer.end()
         );
         centroid += local_centroid;
     }
@@ -139,8 +140,6 @@ void MarchingCubes::marching_cubes(
         centroid /= (OutputVertices.size() / 2);
         marched.test_and_set();
     }
-
-    MarchingCubes::TemporaryBuffers[thread_idx].clear();
 }
 
 void MarchingCubes::launchThreaded(

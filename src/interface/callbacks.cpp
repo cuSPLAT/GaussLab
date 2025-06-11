@@ -1,4 +1,5 @@
 #include "interface/viewport.h"
+#include "tools/tools.h"
 #define GLFW_INCLUDE_NONE
 
 #include "callbacks.h"
@@ -23,5 +24,9 @@ void Callbacks::scroll_callback(GLFWwindow *window, double xoffset, double yoffs
 void Callbacks::key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE)
         ::globalState.in_view_mode = !(::globalState.in_view_mode);
+
+    //TODO: recheck if necessary or if best method
+    if (::globalState.in_view_mode)
+        Tools::activeTool = Tools::AvailableTools::None;
 }
 

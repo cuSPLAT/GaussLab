@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -34,8 +35,7 @@ public:
     void setupRenderer();
     void startMainLoop();
 
-    std::string openFileDialog();
-
+    std::optional<std::string> openFileDialog();
 
     void createMenuBar();
     void createDockSpace();
