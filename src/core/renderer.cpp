@@ -121,7 +121,7 @@ void Renderer::constructMeshScene(std::vector<Vertex>& vertices) {
 
 void Renderer::constructSplatScene(Scene* scene) {
     for (int i = 0; i < Viewport::n_viewports; i++) {
-        Viewport::viewports[i].view_camera->setCentroid(scene->centroid);
+        Viewport::viewports[i].view_camera->lookAt(scene->centroid);
     }
     gaussiansCount = scene->verticesCount;
     newScene = true;

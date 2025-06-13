@@ -25,10 +25,6 @@ Camera::Camera(int width, int height): width(width), height(height),
         cameraPos, cameraPos + cameraTarget, cameraUp
     );
 
-    mouseData.pitch = 0.f, mouseData.yaw = 0.f;
-    mouseData.objectModeYaw = mouseData.yaw;
-    mouseData.objectModePitch = mouseData.pitch;
-    // This is just a matrix to test with
     projection = glm::perspective(glm::radians(45.0f), width / (float)height, 0.1f, 30.f);
 }
 
@@ -55,20 +51,19 @@ void Camera::registerModelView(GLuint shaderId) {
 }
 
 void Camera::updateView() {
-
     view = glm::lookAt(
         cameraPos, cameraPos + cameraTarget, cameraUp
     );
-
-    std::cout << "Centroid: " << sceneCentroid.x << " " << sceneCentroid.y << " " << sceneCentroid.z << std::endl;
-    std::cout << "Current Target: " << cameraTarget.x << " " << cameraTarget.y << " " << cameraTarget.z << std::endl;
-
 }
 
-void Camera::setCentroid(const glm::vec3& centroid) {
+void Camera::lookAt(const glm::vec3& centroid) {
     sceneCentroid = centroid;
     cameraTarget = glm::normalize(sceneCentroid);
     cameraPos = sceneCentroid - 1.5f * cameraTarget;
+    
+    mouseData.yaw = glm::degrees(atan2(cameraTarget.z, cameraTarget.x));
+    mouseData.pitch = glm::degrees(asin(cameraTarget.y));
+
     view = glm::lookAt(cameraPos, cameraPos + cameraTarget, cameraUp);
 }
 
@@ -84,13 +79,6 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
     float sensitivity = 0.1f;
     mouseData.xoffset *= sensitivity;
     mouseData.yoffset *= sensitivity;
-    
-    mouseData.yaw += mouseData.xoffset;
-    mouseData.pitch += mouseData.yoffset;
-    if(mouseData.pitch > 89.0f)
-        mouseData.pitch = 89.0f;
-    if(mouseData.pitch < -89.0f)
-        mouseData.pitch = -89.0f;
 
     if (!scene) {
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
@@ -103,15 +91,18 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
             model = glm::translate(model, -sceneCentroid);
         }
     } else {
+        mouseData.yaw += mouseData.xoffset;
+        mouseData.pitch += mouseData.yoffset;
+
+        if(mouseData.pitch > 89.0f)
+            mouseData.pitch = 89.0f;
+        if(mouseData.pitch < -89.0f)
+            mouseData.pitch = -89.0f;
+
         direction.x = cos(glm::radians(mouseData.yaw)) * cos(glm::radians(mouseData.pitch));
         direction.y = -1 * (sin(glm::radians(mouseData.pitch)));
         direction.z = sin(glm::radians(mouseData.yaw)) * cos(glm::radians(mouseData.pitch));
-        glm::mat3 rotateDir = {
-            glm::vec3 {direction.x, 0.f, 0.f},
-            glm::vec3 {0.f, direction.y, 0.f},
-            glm::vec3 {0.f, 0.f, direction.z}
-        };
-        cameraTarget = rotateDir * glm::normalize(sceneCentroid);
+        cameraTarget = glm::normalize(direction);
     }
 }
 

@@ -41,7 +41,7 @@ public:
     void calculateDirection(GLFWwindow* window, double xpos, double ypos);
     void calculateZoom(double yoffset);
 
-    void setCentroid(const glm::vec3& centroid);
+    void lookAt(const glm::vec3& centroid);
     void updateView();
 };
 

@@ -1,7 +1,7 @@
 #include "viewport.h"
-#include <iostream>
 #include <core/renderer.h>
 
+#include <glm/detail/qualifier.hpp>
 #include <imgui.h>
 #include <memory>
 
@@ -76,11 +76,16 @@ void Viewport::newViewport(int width, int height) {
     viewports[n_viewports] = Viewport(width, height);
     // a cheeky way to do it
     if (n_viewports > 0) {
-        viewports[n_viewports].view_camera->setCentroid(
+        viewports[n_viewports].view_camera->lookAt(
             viewports[n_viewports - 1].view_camera->sceneCentroid
         );
     }
     n_viewports++;
+}
+
+void Viewport::lookAtScene_all(const glm::vec3& centroid) { 
+    for (int i = 0; i < Viewport::n_viewports; i++)
+        viewports[i].view_camera->lookAt(centroid);
 }
 
 // TODO: remove the renderer pointer. it is literally useless here

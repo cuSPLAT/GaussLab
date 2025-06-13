@@ -186,7 +186,13 @@ void Interface::startMainLoop() {
                     ImGui::Text("Camera Position:");
                     ImGui::InputFloat3("Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
 
+                    if (ImGui::Button("Reset")) {
+                        Viewport::lookAtScene_all(centroid);
+                    }
+
                     // Point cloud or Gaussian splatting view mode selection
+                    ImGui::Dummy(ImVec2(0.f, 10.f));
+                    ImGui::SeparatorText("Viewport");
                     if (ImGui::RadioButton("Scene", selectedViewport.view_camera->scene))
                         selectedViewport.view_camera->scene = true;
                     ImGui::SameLine();
@@ -256,7 +262,7 @@ void Interface::startMainLoop() {
                 renderer->constructMeshScene(MarchingCubes::OutputVertices);
 
                 for (int i = 0; i < Viewport::n_viewports; i++)
-                    Viewport::viewports[i].view_camera->setCentroid(centroid);
+                    Viewport::viewports[i].view_camera->lookAt(centroid);
             }
             ImGui::Text("Last run: %d ms", mc_duration);
         }
