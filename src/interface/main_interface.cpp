@@ -223,11 +223,13 @@ void Interface::startMainLoop() {
 
         // --------------------- Marching Cubes -----------------
         static bool rendered = false;
+        static int HU_threshold = 660;
         if (ImGui::Begin("Marching Cubes")) {
             if (ImGui::SliderInt("Threads", &selected_index, 0, log2_threads - 1, ""))
                 n_threads = allowed_threads[selected_index];
             ImGui::SameLine();
             ImGui::Text("%d", allowed_threads[selected_index]);
+            ImGui::InputScalar("HU value", ImGuiDataType_S32, &HU_threshold);
             if(ImGui::Button("March")) {
                 if (dcmReader.loadedData.readable.test()) {
                     rendered = false;
@@ -237,7 +239,7 @@ void Interface::startMainLoop() {
                     MarchingCubes::launchThreaded(
                         data.buffer.get(),
                         data.width, data.length, data.height,
-                        660, centroid,
+                        HU_threshold, centroid,
                         1, n_threads
                     );
                 }

@@ -1,3 +1,4 @@
+#include "core/camera.h"
 #include <core/renderer.h>
 #include <core/shaders.h>
 
@@ -230,6 +231,9 @@ void Renderer::render(GLFWwindow* window) {
             //TODO: pls dont forget -- i forgot
             glDrawArrays(::globalState.debugMode, 0, verticesCount);
         } else {
+            if (!gaussianSceneCreated)
+                continue;
+
             glDisable(GL_DEPTH_TEST);
 
             processGaussianSplats(i);

@@ -90,9 +90,10 @@ void Viewport::drawViewports_ImGui(Renderer* renderer) {
         // TODO: ONly allow a limited number of viewports
         if (ImGui::Begin(viewport_ids[i])) {
             if(ImGui::BeginChild("Render")) {
+                // slicing problem is here
                 if (ImGui::IsWindowHovered())
                     ::globalState.windowHovered = true;
-                else ::globalState.windowHovered = false;
+                //else ::globalState.windowHovered = false;
 
                 if (ImGui::IsWindowFocused() && ::globalState.selectedViewport != i)
                     ::globalState.selectedViewport = i;

@@ -29,8 +29,10 @@ void dispatchToTool(GLFWwindow* window, int button, int action, int mod) {
 }
 
 void drawToolBox_ImGui() {
-    if (ImGui::Button("Slicing"))
+    if (ImGui::Button("Slicing")) {
         activeTool = AvailableTools::Slicing;
+        ::globalState.in_view_mode = false;
+    }
 }
 
 };
