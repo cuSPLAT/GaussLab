@@ -76,8 +76,8 @@ bool Interface::setupWindow() {
 
 void Interface::setupStyle() {
     ImGuiStyle& style = ImGui::GetStyle();
-    style.FrameRounding = 5.f;
-    style.WindowRounding = 5.f;
+    style.FrameRounding  = 0.f;
+    style.WindowRounding = 0.f;
 }
 
 bool Interface::initOpengl() {
@@ -96,6 +96,10 @@ void Interface::setupImgui() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    const char* font_path = "../assets/JetBrainsMono-Regular.ttf";
+    float font_size = 18.0f;
+    io.Fonts->AddFontFromFileTTF(font_path, uiFontSize);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
@@ -173,8 +177,16 @@ void Interface::startMainLoop() {
         Viewport& selectedViewport = Viewport::viewports[::globalState.selectedViewport];
 
         if (ImGui::Begin("Debug")) {
+            ImGui::SeparatorText("Font Size");
+            ImGui::PushItemWidth(-1.0f);
+            ImGui::SliderFloat("##FontSize", &uiFontSize, 12.0f, 26.0f, "%.0f px");
+            ImGui::GetIO().FontGlobalScale = uiFontSize / 18.0f;
+            
+            ImGui::Dummy(ImVec2(0.f, 10.f));
+            ImGui::SeparatorText("Primitive Count");
+            ImGui::PushItemWidth(-1.0f);
             ImGui::InputScalar(
-                "Primitive Count", ImGuiDataType_U32, &renderer->verticesCount, &primtiveStepCount
+                "##PrimitiveCount", ImGuiDataType_U32, &renderer->verticesCount, &primtiveStepCount
             );
         }
         ImGui::End();
@@ -184,7 +196,8 @@ void Interface::startMainLoop() {
                 // Camera Point View Tab
                 if (ImGui::BeginTabItem("Camera Point View")) {
                     ImGui::Text("Camera Position:");
-                    ImGui::InputFloat3("Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
+                    ImGui::PushItemWidth(-1.0f);
+                    ImGui::InputFloat3("##Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
 
                     // Point cloud or Gaussian splatting view mode selection
                     if (ImGui::RadioButton("Scene", selectedViewport.view_camera->scene))
@@ -194,7 +207,9 @@ void Interface::startMainLoop() {
                         selectedViewport.view_camera->scene = false;
                     // ---------------------------------------------------
                     // Rendering mode selection
-                    if (ImGui::BeginCombo("Render Mode", "select")) {
+                    ImGui::Dummy(ImVec2(0.f, 10.f));
+                    ImGui::Text("Render Mode: ");
+                    if (ImGui::BeginCombo("##RenderMode", "select")) {
                         if (ImGui::Selectable("PCD"))
                             globalState.debugMode = GL_POINTS;
                             //globalState.renderingMode = GlobalState::RenderMode::PCD;
@@ -209,10 +224,58 @@ void Interface::startMainLoop() {
                     ImGui::SeparatorText("Gaussian Splats");
                     ImGui::Checkbox("Splat Sorting", &globalState.sortingEnabled);
 
-                    // -------------------- Toolbox----------------------
+                    // -------------------- Toolbox ----------------------
                     ImGui::Dummy(ImVec2(0.f, 10.f));
                     ImGui::SeparatorText("Tool Box");
                     Tools::drawToolBox_ImGui();
+                    
+                    // -------------------- 3DGS Construction ----------------------
+                    ImGui::Dummy(ImVec2(0.f, 10.f));
+                    ImGui::SeparatorText("3DGS Construction");
+
+                    float label_width = 120.0f;
+                    // --- Window Width ---
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                    ImGui::Text("Window Width");
+                    ImGui::SameLine(label_width);
+                    ImGui::InputFloat("##WW", &windowWidth, 0.0f, 0.0f, "%.1f"); // "##WW" makes the label invisible
+                    ImGui::PopItemWidth();
+
+                    // --- Window Center ---
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                    ImGui::Text("Window Center");
+                    ImGui::SameLine(label_width);
+                    ImGui::InputFloat("##WC", &windowCenter, 0.0f, 0.0f, "%.1f");
+                    ImGui::PopItemWidth();
+
+                    // --- HU Threshold ---
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                    ImGui::Text("HU Threshold");
+                    ImGui::SameLine(label_width);
+                    ImGui::InputInt("##HU", &huThreshold);
+                    ImGui::PopItemWidth();
+
+                    // --- Face Camera Slider ---
+                    const char* camera_options[] = { "+X", "+Y", "+Z" };
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                    ImGui::Text("Face Camera");
+                    ImGui::SameLine(label_width);
+                    ImGui::SliderInt("##FaceCamera", &faceCameraIndex, 0, 2, camera_options[faceCameraIndex]);
+                    ImGui::PopItemWidth();
+
+                    ImGui::Dummy(ImVec2(0.f, 5.f));
+                    if (ImGui::Button("Generate Splats", ImVec2(-1, 0))) { // -1 width makes it span the full width
+                        printf("  Window Width:  %.1f\n", windowWidth);
+                        printf("  Window Center: %.1f\n", windowCenter);
+                        printf("  HU Threshold:  %d\n", huThreshold);
+                        printf("  Face Camera:   %s (Index: %d)\n", camera_options[faceCameraIndex], faceCameraIndex);
+                    }
+
+                    ImGui::Dummy(ImVec2(0.f, 10.f));
+                    ImGui::SeparatorText("Gaussian Scailing");
+                    ImGui::SliderFloat("##GaussianScale", &gaussianScale, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+                    ImGui::PopItemWidth();
+
                     ImGui::EndTabItem();
                 }
             }

@@ -6,17 +6,17 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
-set(CMAKE_PREFIX_PATH external/libtorch)
+# set(CMAKE_PREFIX_PATH external/libtorch)
 
 add_subdirectory(external/nativefiledialog)
 add_subdirectory(external/vega)
+add_subdirectory(src/backend)
 
 find_package(OpenGL REQUIRED)
 find_package(Torch REQUIRED)
 find_package(glfw3 3.4 REQUIRED)
 find_package(glm REQUIRED)
 find_package(Threads REQUIRED)
-
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
@@ -28,7 +28,6 @@ set(IMGUI_SOURCES
     "external/imgui/imgui_widgets.cpp"
     "external/imgui/backends/imgui_impl_glfw.cpp"
     "external/imgui/backends/imgui_impl_opengl3.cpp"
-
 )
 
 set(INTERFACE_SRC
@@ -102,4 +101,5 @@ target_link_libraries(
 
     nfd
     vega
+    cusplat
 )
