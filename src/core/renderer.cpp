@@ -220,6 +220,7 @@ void Renderer::processGaussianSplats(int i) {
 void Renderer::render(GLFWwindow* window) {
     Viewport::viewports[::globalState.selectedViewport].view_camera->handleInput(window);
 
+    //TODO: use UBOs instead of normal uniforms
     for (int i = 0; i < Viewport::n_viewports; i++) {
         Viewport::renderOnViewport(i);
 
@@ -230,20 +231,19 @@ void Renderer::render(GLFWwindow* window) {
             Viewport::viewports[i].view_camera->registerModelView(shaderProgram);
             //TODO: pls dont forget -- i forgot
             glDrawArrays(::globalState.debugMode, 0, verticesCount);
-        } else {
-            if (!gaussianSceneCreated)
+        } else if (gaussianSceneCreated) {
+            if (::globalState.renderingMode == GlobalState::RenderMode::PCD) {
+                glUseProgram(shaderProgram);
+                glDrawArrays(GL_POINTS, 0, gaussiansCount);
                 continue;
-
-            glDisable(GL_DEPTH_TEST);
-
-            processGaussianSplats(i);
-            if (globalState.renderingMode == GlobalState::RenderMode::PCD) {
-            } else {
-                glUseProgram(gaussRenProgram);
-                Viewport::viewports[i].view_camera->registerModelView(gaussRenProgram);
-                Viewport::viewports[i].view_camera->uploadIntrinsics(gaussRenProgram);
-                glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, gaussiansCount);
             }
+            glDisable(GL_DEPTH_TEST);
+            processGaussianSplats(i);
+
+            glUseProgram(gaussRenProgram);
+            Viewport::viewports[i].view_camera->registerModelView(gaussRenProgram);
+            Viewport::viewports[i].view_camera->uploadIntrinsics(gaussRenProgram);
+            glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, gaussiansCount);
         }
         Viewport::viewports[i].view_camera->updateView();
     }

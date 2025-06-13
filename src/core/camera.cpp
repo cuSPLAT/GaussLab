@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iostream>
 #include <glm/ext/matrix_clip_space.hpp>
 
 #include <glm/ext/matrix_transform.hpp>
@@ -17,14 +18,14 @@ Camera::Camera(int width, int height): width(width), height(height),
     fov(45.0f), mouseData(0), model(1.0f), sceneCentroid(0.f)
 {
     //TODO: changable from gui
-    cameraPos = glm::vec3(0.0f, 0.0f, 1.0f);
+    cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
     cameraTarget = glm::vec3(0.0f, 0.0f, -1.0f);
     cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
     view = glm::lookAt(
         cameraPos, cameraPos + cameraTarget, cameraUp
     );
 
-    mouseData.pitch = -90.f, mouseData.yaw = 0.f;
+    mouseData.pitch = 0.f, mouseData.yaw = 0.f;
     mouseData.objectModeYaw = mouseData.yaw;
     mouseData.objectModePitch = mouseData.pitch;
     // This is just a matrix to test with
@@ -54,17 +55,21 @@ void Camera::registerModelView(GLuint shaderId) {
 }
 
 void Camera::updateView() {
-    if (!scene)
-        return;
 
     view = glm::lookAt(
         cameraPos, cameraPos + cameraTarget, cameraUp
     );
+
+    std::cout << "Centroid: " << sceneCentroid.x << " " << sceneCentroid.y << " " << sceneCentroid.z << std::endl;
+    std::cout << "Current Target: " << cameraTarget.x << " " << cameraTarget.y << " " << cameraTarget.z << std::endl;
+
 }
 
 void Camera::setCentroid(const glm::vec3& centroid) {
     sceneCentroid = centroid;
-    view = glm::lookAt(cameraPos , sceneCentroid, cameraUp);
+    cameraTarget = glm::normalize(sceneCentroid);
+    cameraPos = sceneCentroid - 1.5f * cameraTarget;
+    view = glm::lookAt(cameraPos, cameraPos + cameraTarget, cameraUp);
 }
 
 void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
@@ -87,21 +92,27 @@ void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
     if(mouseData.pitch < -89.0f)
         mouseData.pitch = -89.0f;
 
-    if (!scene && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        mouseData.objectModeYaw += mouseData.xoffset;
-        mouseData.objectModePitch += mouseData.yoffset;
+    if (!scene) {
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            mouseData.objectModeYaw += mouseData.xoffset;
+            mouseData.objectModePitch += mouseData.yoffset;
 
-        model = glm::translate(glm::mat4(1.0f), glm::vec3(sceneCentroid));
-        model = glm::rotate(model, glm::radians(mouseData.objectModeYaw), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(mouseData.objectModePitch), glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::translate(model, -sceneCentroid);
-        return;
+            model = glm::translate(glm::mat4(1.0f), glm::vec3(sceneCentroid));
+            model = glm::rotate(model, glm::radians(mouseData.objectModeYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::rotate(model, glm::radians(mouseData.objectModePitch), glm::vec3(1.0f, 0.0f, 0.0f));
+            model = glm::translate(model, -sceneCentroid);
+        }
+    } else {
+        direction.x = cos(glm::radians(mouseData.yaw)) * cos(glm::radians(mouseData.pitch));
+        direction.y = -1 * (sin(glm::radians(mouseData.pitch)));
+        direction.z = sin(glm::radians(mouseData.yaw)) * cos(glm::radians(mouseData.pitch));
+        glm::mat3 rotateDir = {
+            glm::vec3 {direction.x, 0.f, 0.f},
+            glm::vec3 {0.f, direction.y, 0.f},
+            glm::vec3 {0.f, 0.f, direction.z}
+        };
+        cameraTarget = rotateDir * glm::normalize(sceneCentroid);
     }
-
-    direction.x = cos(glm::radians(mouseData.yaw)) * cos(glm::radians(mouseData.pitch));
-    direction.y = -1 * (sin(glm::radians(mouseData.pitch)));
-    direction.z = sin(glm::radians(mouseData.yaw)) * cos(glm::radians(mouseData.pitch));
-    cameraTarget = glm::normalize(direction);
 }
 
 void Camera::calculateZoom(double yoffset) {
