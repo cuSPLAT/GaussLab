@@ -13,7 +13,7 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
 endif()
 # Suppress warning #20012-D (nvcc and glm)
 set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -diag-suppress=20012)
-set(GCC_OPENMP_INCLUDE_DIR "/usr/lib/gcc/x86_64-unknown-linux-gnu/14.2/include") 
+set(GCC_OPENMP_INCLUDE_DIR "/usr/lib/gcc/x86_64-unknown-linux-gnu/14.2/include")
 
 include(FetchContent)
 

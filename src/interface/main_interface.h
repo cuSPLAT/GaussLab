@@ -29,6 +29,7 @@ class Interface {
     int huThreshold = 300;
     int faceCameraIndex = 1;
     float gaussianScale = 1.0f;
+    std::string dicomDirectoryPath;
 
     void setupStyle();
 

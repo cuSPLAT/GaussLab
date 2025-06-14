@@ -19,7 +19,7 @@ struct PlyData
   torch::Tensor quats;
 };
 
-struct Scene
+struct SceneBE
 {
   std::unique_ptr<float[]> sceneDataBuffer;
   size_t verticesCount = 0;
@@ -70,6 +70,6 @@ struct Model
 };
 
 void savePly(const std::string &filename, const PlyData& data);
-Scene createSceneFromPlyData(const PlyData& data);
+SceneBE createSceneFromPlyData(const PlyData& data);
 
 #endif

@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
         PlyData plyData = model.getPlyData();
 
         std::cout << "scene data buffer for viewer..." << std::endl;
-        Scene scene = createSceneFromPlyData(plyData);
+        SceneBE scene = createSceneFromPlyData(plyData);
         std::cout << "  - Vertices: " << scene.verticesCount << std::endl;
         std::cout << "  - Buffer Size: " << scene.bufferSize / (1024.0 * 1024.0) << " MB" << std::endl;
         std::cout << "  - Centroid: (" << scene.centroid[0] << ", " << scene.centroid[1] << ", " << scene.centroid[2] << ")" << std::endl;

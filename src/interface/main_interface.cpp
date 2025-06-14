@@ -13,6 +13,9 @@
 
 #include <optional>
 #include <tools/tools.h>
+#include "backend/includes/model.hpp"
+#include "backend/includes/engine.hpp"
+#include "backend/includes/dicom_loader.hpp"
 
 #include <chrono>
 #include <glm/fwd.hpp>
@@ -264,11 +267,53 @@ void Interface::startMainLoop() {
                     ImGui::PopItemWidth();
 
                     ImGui::Dummy(ImVec2(0.f, 5.f));
-                    if (ImGui::Button("Generate Splats", ImVec2(-1, 0))) { // -1 width makes it span the full width
-                        printf("  Window Width:  %.1f\n", windowWidth);
-                        printf("  Window Center: %.1f\n", windowCenter);
-                        printf("  HU Threshold:  %d\n", huThreshold);
-                        printf("  Face Camera:   %s (Index: %d)\n", camera_options[faceCameraIndex], faceCameraIndex);
+                    float dcmDirButtonWidth = 80.0f;
+                    float spacing = ImGui::GetStyle().ItemSpacing.x;
+                    float fullWidth = ImGui::GetContentRegionAvail().x;
+                    if (ImGui::Button("dcmDir", ImVec2(dcmDirButtonWidth, 0)))
+                    {
+                        nfdu8char_t* path;
+                        nfdresult_t result = NFD_PickFolderU8(&path, nullptr);
+                    
+                        if (result == NFD_OKAY)
+                        {
+                            dicomDirectoryPath = std::string(path); 
+                            NFD_FreePathU8(path); // Free the path returned by NFD
+                            printf("Selected DICOM Directory: %s\n", dicomDirectoryPath.c_str());
+                        }
+                        else if (result == NFD_CANCEL)
+                        {
+                            printf("CANCELLED.\n");
+                        } 
+                        else
+                        {
+                            printf("Error picking directory: %s\n", NFD_GetError());
+                        }
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Generate Splats", ImVec2(fullWidth - dcmDirButtonWidth - spacing, 0)))
+                    { // -1 width makes it span the full width
+                        if (dicomDirectoryPath.empty())
+                        {
+                            printf("Error: Please select a DICOM directory first.\n");
+                        }
+                        else
+                        {
+                            torch::Device device = torch::kCUDA;
+                            std::cout << device << "\n";
+                            InputData inputData = inputDataFromDicom(dicomDirectoryPath, windowWidth, windowCenter, huThreshold, 1, faceCameraIndex);
+                            Model model(inputData, device);
+                            Camera& cam = inputData.cameras[0];
+                            model.forward(cam);
+                            PlyData plyData = model.getPlyData();
+
+                            std::cout << "scene data buffer for viewer..." << std::endl;
+                            SceneBE scene = createSceneFromPlyData(plyData);
+                            std::cout << "  - Vertices: " << scene.verticesCount << std::endl;
+                            std::cout << "  - Buffer Size: " << scene.bufferSize / (1024.0 * 1024.0) << " MB" << std::endl;
+                            std::cout << "  - Centroid: (" << scene.centroid[0] << ", " << scene.centroid[1] << ", " << scene.centroid[2] << ")" << std::endl;
+                        }
                     }
 
                     ImGui::Dummy(ImVec2(0.f, 10.f));

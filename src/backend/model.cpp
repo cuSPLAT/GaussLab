@@ -22,9 +22,9 @@ torch::Tensor randomQuatTensor(long long n)
     }, -1);
 }
 
-Scene createSceneFromPlyData(const PlyData& data)
+SceneBE createSceneFromPlyData(const PlyData& data)
 {
-    Scene scene;
+    SceneBE scene;
 
     scene.verticesCount = data.means.size(0);
     if (scene.verticesCount == 0) { return scene; }
@@ -188,7 +188,7 @@ PlyData Model::getPlyData()
 
 void savePly(const std::string &filename, const PlyData& data)
 {
-    Scene scene = createSceneFromPlyData(data);
+    SceneBE scene = createSceneFromPlyData(data);
 
     if (scene.verticesCount == 0)
     {

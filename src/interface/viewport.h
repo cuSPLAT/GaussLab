@@ -19,7 +19,7 @@ struct Viewport {
     static void renderOnViewport(int i);
 
     const char* viewport_id;
-    std::unique_ptr<Camera> view_camera;
+    std::unique_ptr<CameraView> view_camera;
     bool mesh = true;
 
     glm::vec4 viewportPosData;
