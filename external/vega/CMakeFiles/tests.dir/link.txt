@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -Ofast -pthread -rdynamic CMakeFiles/tests.dir/test/tests.cpp.o -o tests  -Wl,-rpath,/home/zain/GausStudio-main/external/vega libvega_dev.so /usr/lib64/libgtest.so.1.14.0 -lpthread -lz

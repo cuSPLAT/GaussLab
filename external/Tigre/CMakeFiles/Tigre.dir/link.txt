@@ -1,0 +1,2 @@
+/usr/bin/ar qc libTigre.a CMakeFiles/Tigre.dir/GpuIds.cpp.o CMakeFiles/Tigre.dir/TIGRE_common.cpp.o CMakeFiles/Tigre.dir/Siddon_projection.cu.o CMakeFiles/Tigre.dir/ray_interpolated_projection.cu.o
+/usr/bin/ranlib libTigre.a

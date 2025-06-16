@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -Ofast -pthread -rdynamic "CMakeFiles/vega-bin.dir/src/main.cpp.o" -o vega  -Wl,-rpath,/home/zain/GausStudio-main/external/vega: libvega.so -lz

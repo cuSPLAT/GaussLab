@@ -1,0 +1,13 @@
+[submodule "external/imgui"]
+	path = external/imgui
+	url = https://github.com/ocornut/imgui.git
+	branch = docking
+[submodule "external/happly"]
+	path = external/happly
+	url = https://github.com/nmwsharp/happly.git
+[submodule "external/nativefiledialog"]
+	path = external/nativefiledialog
+	url = git@github.com:btzy/nativefiledialog-extended.git
+[submodule "external/vega"]
+	path = external/vega
+	url = git@github.com:project-eutopia/vega.git
