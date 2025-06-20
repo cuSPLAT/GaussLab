@@ -67,10 +67,11 @@ const char* Shaders::viewMatMulCompute = R"(
     };
 
     uniform mat4 view;
+    uniform mat4 model;
     uniform mat4 projection;
 
     void main() {
-        vec4 world_space = view * vec4(aPos, 1.0);
+        vec4 world_space = view * model * vec4(aPos, 1.0);
         z_depth[gl_VertexID] = world_space.z;
         gaussian_indices[gl_VertexID] = gl_VertexID;
     }
@@ -95,6 +96,7 @@ const char* Shaders::gaussianVertexShader = R"(
     #define STRIDE 14
 
     uniform mat4 view;
+    uniform mat4 model;
     uniform mat4 projection;
     uniform vec3 hfov_focal;
 
@@ -159,7 +161,7 @@ const char* Shaders::gaussianVertexShader = R"(
 
         mat3 cov3D = computeCov3D(normalize(rotation), scale);
 
-        vec4 view_space = view * vec4(mean, 1);
+        vec4 view_space = view * model * vec4(mean, 1);
         vec4 pos2d = projection * view_space;
         // Apply perspective divison here because the 2d coordinates will be 
         // used in other calculations
@@ -191,7 +193,7 @@ const char* Shaders::gaussianVertexShader = R"(
           0., 0., 0.
         );
 			
-        mat3 T = transpose(mat3(view)) * J;
+        mat3 T = transpose(mat3(view) * mat3(model)) * J;
         mat3 cov2d = transpose(T) * transpose(cov3D) * T;
 
         // A low pass filter according to the paper

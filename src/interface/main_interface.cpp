@@ -202,7 +202,13 @@ void Interface::startMainLoop() {
                     ImGui::PushItemWidth(-1.0f);
                     ImGui::InputFloat3("##Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
 
+                    if (ImGui::Button("Reset")) {
+                        Viewport::lookAtScene_all(centroid);
+                    }
+
                     // Point cloud or Gaussian splatting view mode selection
+                    ImGui::Dummy(ImVec2(0.f, 10.f));
+                    ImGui::SeparatorText("Viewport");
                     if (ImGui::RadioButton("Scene", selectedViewport.view_camera->scene))
                         selectedViewport.view_camera->scene = true;
                     ImGui::SameLine();
@@ -331,11 +337,13 @@ void Interface::startMainLoop() {
 
         // --------------------- Marching Cubes -----------------
         static bool rendered = false;
+        static int HU_threshold = 660;
         if (ImGui::Begin("Marching Cubes")) {
             if (ImGui::SliderInt("Threads", &selected_index, 0, log2_threads - 1, ""))
                 n_threads = allowed_threads[selected_index];
             ImGui::SameLine();
             ImGui::Text("%d", allowed_threads[selected_index]);
+            ImGui::InputScalar("HU value", ImGuiDataType_S32, &HU_threshold);
             if(ImGui::Button("March")) {
                 if (dcmReader.loadedData.readable.test()) {
                     rendered = false;
@@ -345,7 +353,7 @@ void Interface::startMainLoop() {
                     MarchingCubes::launchThreaded(
                         data.buffer.get(),
                         data.width, data.length, data.height,
-                        660, centroid,
+                        HU_threshold, centroid,
                         1, n_threads
                     );
                 }
@@ -362,7 +370,7 @@ void Interface::startMainLoop() {
                 renderer->constructMeshScene(MarchingCubes::OutputVertices);
 
                 for (int i = 0; i < Viewport::n_viewports; i++)
-                    Viewport::viewports[i].view_camera->setCentroid(centroid);
+                    Viewport::viewports[i].view_camera->lookAt(centroid);
             }
             ImGui::Text("Last run: %d ms", mc_duration);
         }
