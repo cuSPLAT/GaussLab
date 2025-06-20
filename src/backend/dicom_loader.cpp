@@ -120,6 +120,7 @@ std::tuple<torch::Tensor, torch::Tensor, float> autoScaleAndCenterPoses(const to
     return std::make_tuple(transformedPoses, center, f);
 }
 
+
 InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
                              double WW, 
                              double WC, 
@@ -143,16 +144,18 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
     std::vector<std::array<double, 3>> all_points_3d;
     std::vector<std::array<unsigned char, 3>> all_colors_8bit;
 
-    // --- we need these for thread-safe accumulation ---
-    std::vector<Camera> cameras_accumulator;
+    // --- we need these for thread-safe accumulation --- ? you don't even need the cameras
+    std::vector<CameraYassa> cameras_accumulator;
     std::vector<std::pair<int, torch::Tensor>> poses_accumulator;
 
     #pragma omp parallel
     {
         dcmcore::DataSet thread_local_dataSet;
         // each thread will have its own temporary vectors to avoid locking on every pixel
-        std::vector<Camera> local_cameras;
+        std::vector<CameraYassa> local_cameras;
         std::vector<std::pair<int, torch::Tensor>> local_poses;
+
+
         std::vector<std::array<double, 3>> local_points;
         std::vector<std::array<unsigned char, 3>> local_colors;
 
@@ -177,7 +180,7 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
             }
 
             // --- 2. create Camera object ---
-            Camera cam;
+            CameraYassa cam;
             int current_id = static_cast<int>(i);
             cam.id = current_id;
             cam.width = W;
@@ -269,7 +272,7 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
                              for(int k=0; k<3; ++k)
                              {
                                 // correct pairing: r with RowVector (iop[k]) and c with ColVector (iop[k+3])
-                                pt_3d[k] = ipp[k] + (c * ps[1] * iop[k+3]) + (r * ps[0] * iop[k]);
+                                pt_3d[k] = ipp[k] + (c * ps[1] * iop[k + 3]) + (r * ps[0] * iop[k]);
                              }
 
                              local_points.push_back(pt_3d);
@@ -300,7 +303,7 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
     }
 
     // 1. Sort the cameras by their ID to ensure a consistent order (0, 1, 2, ...).
-    std::sort(cameras_accumulator.begin(), cameras_accumulator.end(), [](const Camera& a, const Camera& b)
+    std::sort(cameras_accumulator.begin(), cameras_accumulator.end(), [](const CameraYassa& a, const CameraYassa& b)
     {
         return a.id < b.id;
     });
@@ -309,19 +312,19 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
     std::sort(poses_accumulator.begin(), poses_accumulator.end(), [](const auto& a, const auto& b)
     {
         return a.first < b.first; // 'first' is the integer ID in the std::pair
-    });
+   });
     
     // 3. Create the final list of pose tensors, which are now correctly ordered.
     std::vector<torch::Tensor> poses_list;
     poses_list.reserve(poses_accumulator.size());
     for (const auto& pose_pair : poses_accumulator)
     {
-        poses_list.push_back(pose_pair.second);
-    }
+       poses_list.push_back(pose_pair.second);
+   }
     
     ret.cameras = std::move(cameras_accumulator);
 
-    // --- 6. Scale and Center Poses and Points ---
+    //// --- 6. Scale and Center Poses and Points ---
     torch::Tensor poses_tensor = torch::stack(poses_list, 0);
     torch::Tensor R_align = get_alignment_matrix(up_direction_choice);
 

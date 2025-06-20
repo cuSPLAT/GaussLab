@@ -1,4 +1,7 @@
 // model.cpp
+#include <ATen/core/interned_strings.h>
+#include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include "includes/model.hpp"
@@ -35,70 +38,49 @@ SceneBE createSceneFromPlyData(const PlyData& data)
     memcpy(scene.centroid, centroidTensor.data_ptr<float>(), 3 * sizeof(float));
 
     // --- 2) Prepare for buffer creation ---
-    size_t floats_per_pt = 3  /*xyz*/ + 3 /*normals*/ + dcF
+    size_t floats_per_pt = 3  /*xyz*/ + 3 /*colors*/
                           + 1 /*opacity*/ + 3 /*scale*/ + 4 /*quat*/;
-    size_t record_bytes  = floats_per_pt * sizeof(float);
-    scene.bufferSize   = record_bytes * scene.verticesCount;
-
+    size_t record_bytes = floats_per_pt * sizeof(float);
+    scene.bufferSize = record_bytes * scene.verticesCount;
     // Allocate the single, contiguous buffer
     scene.sceneDataBuffer = std::make_unique<float[]>(floats_per_pt * scene.verticesCount);
-    uint8_t* buffer_ptr = reinterpret_cast<uint8_t*>(scene.sceneDataBuffer.get());
-    
+    // TODO: there is no need to re-init but for some reason it errors
+    // most probably an include mismatch
+    torch::Tensor scales = torch::exp(data.scales);
+    torch::Tensor opacities = 1 / (1 + torch::exp(-data.opacities));
+
     // --- 3) Get raw data pointers from CPU tensors once ---
     const float* means_ptr     = data.means.data_ptr<float>();
     const float* features_ptr  = data.featuresDc.data_ptr<float>();
-    const float* opacities_ptr = data.opacities.data_ptr<float>();
-    const float* scales_ptr    = data.scales.data_ptr<float>();
+    const float* opacities_ptr = opacities.data_ptr<float>();
+    const float* scales_ptr    = scales.data_ptr<float>();
     const float* quats_ptr     = data.quats.data_ptr<float>();
 
-    // --- 4) Parallel fill the single buffer with interleaved data (AoS) ---
     size_t current_offset = 0;
-
-    // XYZ
-    #pragma omp parallel for
-    for (int64_t i = 0; i < scene.verticesCount; ++i) {
-        memcpy(buffer_ptr + i * record_bytes + current_offset, means_ptr + i * 3, 3 * sizeof(float));
-    }
-    current_offset += 3 * sizeof(float);
-
-    // Normals (zeros)
-    #pragma omp parallel for
-    for (int64_t i = 0; i < scene.verticesCount; ++i) {
-        memset(buffer_ptr + i * record_bytes + current_offset, 0, 3 * sizeof(float));
-    }
-    current_offset += 3 * sizeof(float);
-
-    // Features
-    #pragma omp parallel for
-    for (int64_t i = 0; i < scene.verticesCount; ++i) {
-        memcpy(buffer_ptr + i * record_bytes + current_offset, features_ptr + i * dcF, dcF * sizeof(float));
-    }
-    current_offset += dcF * sizeof(float);
-
-    // Opacity
-    #pragma omp parallel for
-    for (int64_t i = 0; i < scene.verticesCount; ++i) {
-        memcpy(buffer_ptr + i * record_bytes + current_offset, opacities_ptr + i, 1 * sizeof(float));
-    }
-    current_offset += 1 * sizeof(float);
-
-    // Scale
-    #pragma omp parallel for
-    for (int64_t i = 0; i < scene.verticesCount; ++i) {
-        memcpy(buffer_ptr + i * record_bytes + current_offset, scales_ptr + i * 3, 3 * sizeof(float));
-    }
-    current_offset += 3 * sizeof(float);
-
-    // Quaternion
-    #pragma omp parallel for
-    for (int64_t i = 0; i < scene.verticesCount; ++i) {
-        memcpy(buffer_ptr + i * record_bytes + current_offset, quats_ptr + i * 4, 4 * sizeof(float));
-    }
+    std::memcpy(
+        scene.sceneDataBuffer.get() + current_offset, means_ptr, data.means.size(0) * 3 * sizeof(float)
+    );
+    current_offset += data.means.size(0) * 3;
+    std::memcpy(
+        scene.sceneDataBuffer.get() + current_offset, features_ptr, data.featuresDc.size(0) * 3 * sizeof(float)
+    );
+    current_offset += data.featuresDc.size(0) * 3;
+    std::memcpy(
+        scene.sceneDataBuffer.get() + current_offset, opacities_ptr, data.opacities.size(0) * sizeof(float)
+    );
+    current_offset += data.opacities.size(0);
+    std::memcpy(
+        scene.sceneDataBuffer.get() + current_offset, scales_ptr, data.scales.size(0) * 3 * sizeof(float)
+    );
+    current_offset += data.scales.size(0) * 3;
+    std::memcpy(
+        scene.sceneDataBuffer.get() + current_offset, quats_ptr, data.quats.size(0) * 4 * sizeof(float)
+    );
 
     return scene;
 }
 
-torch::Tensor Model::forward(Camera& cam)
+torch::Tensor Model::forward(CameraYassa& cam)
 {
     const float fx = cam.fx;
     const float fy = cam.fy;

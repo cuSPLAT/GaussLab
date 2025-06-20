@@ -1,3 +1,4 @@
+#include "algorithms/marchingcubes.h"
 #include "core/camera.h"
 #include <core/renderer.h>
 #include <core/shaders.h>
@@ -125,14 +126,26 @@ void Renderer::constructSplatScene(Scene* scene) {
     }
     gaussiansCount = scene->verticesCount;
     newScene = true;
+    
+    size_t stride = 14 * sizeof(float);
+    size_t offset = 0;
+    if (!scene->interleavedBuffer) {
+        stride = 3 * sizeof(float);
+        offset = scene->verticesCount * 3 * sizeof(float);
+    }
 
     // this part is just extra memory used, this could be optimized to only use the
     // means, or even better a single cuda kernel or a compute shader
     GLuint gaussianMeans;
     glGenBuffers(1, &gaussianMeans);
     glBindBuffer(GL_ARRAY_BUFFER, gaussianMeans);
-    glBufferData(GL_ARRAY_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        scene->verticesCount * sizeof(Vertex), 
+        scene->sceneDataBuffer.get(), GL_STATIC_DRAW
+    );
+    
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(3);
 
     // the data of the rectangle that a Gaussian will occupy
@@ -242,7 +255,7 @@ void Renderer::render(GLFWwindow* window) {
 
             glUseProgram(gaussRenProgram);
             Viewport::viewports[i].view_camera->registerModelView(gaussRenProgram);
-            Viewport::viewports[i].view_camera->uploadIntrinsics(gaussRenProgram);
+            Viewport::viewports[i].view_camera->uploadIntrinsics(gaussRenProgram, gaussiansCount);
             glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, gaussiansCount);
         }
         Viewport::viewports[i].view_camera->updateView();

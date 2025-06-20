@@ -15,7 +15,7 @@ std::tuple<torch::Tensor, torch::Tensor, float> autoScaleAndCenterPoses(const to
 // ###############################################################################
 // input_data
 // ###############################################################################
-struct Camera
+struct CameraYassa
 {
     int id = -1;
     int width = 0;
@@ -30,7 +30,7 @@ struct Camera
     torch::Tensor K; // 3x3 intrinsics matrix
     std::string filePath = "";
 
-    Camera(){};
+    CameraYassa(){};
     // This function creates the intrinsics matrix from fx, fy, cx, cy
     torch::Tensor getIntrinsicsMatrix()
     {
@@ -48,7 +48,7 @@ struct Points
 
 struct InputData
 {
-    std::vector<Camera> cameras;
+    std::vector<CameraYassa> cameras;
     float scale;
     torch::Tensor translation;
     Points points;

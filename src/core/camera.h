@@ -6,7 +6,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-class CameraView {
+class Camera {
     glm::vec3 direction;
     glm::vec3 hfov_focal;
 
@@ -30,11 +30,11 @@ public:
     glm::mat4 model, view, projection;
 
 public:
-    CameraView(int width, int height);
-    ~CameraView();
+    Camera(int width, int height);
+    ~Camera();
     void registerModelView(GLuint shaderId);
     void handleInput(GLFWwindow* window);
-    void uploadIntrinsics(GLuint program);
+    void uploadIntrinsics(GLuint program, int instanceCounts);
 
     void updateViewport(float width, float height, int shader);
 

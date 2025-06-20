@@ -100,9 +100,9 @@ void Interface::setupImgui() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    const char* font_path = "../assets/JetBrainsMono-Regular.ttf";
-    float font_size = 18.0f;
-    io.Fonts->AddFontFromFileTTF(font_path, uiFontSize);
+    //const char* font_path = "../assets/JetBrainsMono-Regular.ttf";
+    //float font_size = 18.0f;
+    //io.Fonts->AddFontFromFileTTF(font_path, uiFontSize);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
@@ -220,11 +220,11 @@ void Interface::startMainLoop() {
                     ImGui::Text("Render Mode: ");
                     if (ImGui::BeginCombo("##RenderMode", "select")) {
                         if (ImGui::Selectable("PCD"))
-                            globalState.debugMode = GL_POINTS;
-                            //globalState.renderingMode = GlobalState::RenderMode::PCD;
+                            //globalState.debugMode = GL_POINTS;
+                            globalState.renderingMode = GlobalState::RenderMode::PCD;
                         if (ImGui::Selectable("Splats"))
-                            //globalState.renderingMode = GlobalState::RenderMode::Splats;
-                            globalState.debugMode = GL_TRIANGLES;
+                            globalState.renderingMode = GlobalState::RenderMode::Splats;
+                            //globalState.debugMode = GL_TRIANGLES;
                     
                         ImGui::EndCombo();
                     }
@@ -310,15 +310,23 @@ void Interface::startMainLoop() {
                             std::cout << device << "\n";
                             InputData inputData = inputDataFromDicom(dicomDirectoryPath, windowWidth, windowCenter, huThreshold, 1, faceCameraIndex);
                             Model model(inputData, device);
-                            Camera& cam = inputData.cameras[0];
-                            model.forward(cam);
+                            //CameraYassa& cam = inputData.cameras[0];
+                            //model.forward(cam);
                             PlyData plyData = model.getPlyData();
 
                             std::cout << "scene data buffer for viewer..." << std::endl;
                             SceneBE scene = createSceneFromPlyData(plyData);
-                            std::cout << "  - Vertices: " << scene.verticesCount << std::endl;
-                            std::cout << "  - Buffer Size: " << scene.bufferSize / (1024.0 * 1024.0) << " MB" << std::endl;
-                            std::cout << "  - Centroid: (" << scene.centroid[0] << ", " << scene.centroid[1] << ", " << scene.centroid[2] << ")" << std::endl;
+                            Scene yassas_scene = {
+                                .sceneDataBuffer = std::move(scene.sceneDataBuffer),
+                                .interleavedBuffer = false,
+                                .verticesCount = scene.verticesCount,
+                                .bufferSize = scene.bufferSize,
+                                .centroid = {scene.centroid[0], scene.centroid[1], scene.centroid[2]}
+                            };
+                            std::cout << "Centroid: " << scene.centroid[0] << " " << scene.centroid[1] << " " << scene.centroid[2] << std::endl;
+                            //savePly("test.ply", plyData);
+                            renderer->constructSplatScene(&yassas_scene);
+                            yassas_scene.sceneDataBuffer.reset();
                         }
                     }
 

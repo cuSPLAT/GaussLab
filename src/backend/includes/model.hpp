@@ -51,7 +51,7 @@ struct Model
       backgroundColor = torch::zeros({1}, device);
   }
 
-  torch::Tensor forward(Camera& cam);
+  torch::Tensor forward(CameraYassa& cam);
   PlyData getPlyData();
   // void savePly(const std::string &filename);
   // void savePlyOptimized(const std::string &filename);
