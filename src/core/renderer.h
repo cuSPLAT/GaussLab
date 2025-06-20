@@ -17,6 +17,7 @@
 
 struct Scene {
     std::unique_ptr<float[]> sceneDataBuffer;
+    bool interleavedBuffer = true;
     size_t verticesCount = 0;
     size_t bufferSize;
     glm::vec3 centroid;

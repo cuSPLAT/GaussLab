@@ -6,11 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
-set(CMAKE_CUDA_ARCHITECTURES "86" CACHE STRING "CUDA architectures to build for" FORCE)
+set(CMAKE_CUDA_ARCHITECTURES "75" CACHE STRING "CUDA architectures to build for" FORCE)
 message(STATUS "[GausStudio] Setting global CMAKE_CUDA_ARCHITECTURES to: ${CMAKE_CUDA_ARCHITECTURES}")
 
 # Propagate this setting to PyTorch for its JIT compiler (important!)
-set(TORCH_CUDA_ARCH_LIST "8.6" CACHE STRING "PyTorch JIT CUDA arch list" FORCE)
+set(TORCH_CUDA_ARCH_LIST "7.5" CACHE STRING "PyTorch JIT CUDA arch list" FORCE)
 message(STATUS "[GausStudio] Setting TORCH_CUDA_ARCH_LIST to: ${TORCH_CUDA_ARCH_LIST}")
 
 # set(CMAKE_PREFIX_PATH external/libtorch)

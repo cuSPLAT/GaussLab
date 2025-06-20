@@ -14,7 +14,7 @@
 #include "camera.h"
 #include "core/renderer.h"
 
-CameraView::CameraView(int width, int height): width(width), height(height),
+Camera::Camera(int width, int height): width(width), height(height),
     fov(45.0f), mouseData(0), model(1.0f), sceneCentroid(0.f)
 {
     //TODO: changable from gui
@@ -28,9 +28,9 @@ CameraView::CameraView(int width, int height): width(width), height(height),
     projection = glm::perspective(glm::radians(45.0f), width / (float)height, 0.1f, 30.f);
 }
 
-CameraView::~CameraView() {}
+Camera::~Camera() {}
 
-void CameraView::updateViewport(float width, float height, int shader) {
+void Camera::updateViewport(float width, float height, int shader) {
     this->width = width;
     this->height = height;
 
@@ -41,7 +41,7 @@ void CameraView::updateViewport(float width, float height, int shader) {
     glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(projection));
 };
 
-void CameraView::registerModelView(GLuint shaderId) {
+void Camera::registerModelView(GLuint shaderId) {
     GLuint matrixLocation = glGetUniformLocation(shaderId, "view");
     glUniformMatrix4fv(matrixLocation, 1, GL_FALSE, glm::value_ptr(view));
     matrixLocation = glGetUniformLocation(shaderId, "model");
@@ -67,7 +67,7 @@ void Camera::lookAt(const glm::vec3& centroid) {
     view = glm::lookAt(cameraPos, cameraPos + cameraTarget, cameraUp);
 }
 
-void CameraView::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
+void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
     if (!(::globalState.in_view_mode))
         return;
 
@@ -106,7 +106,7 @@ void CameraView::calculateDirection(GLFWwindow* window, double xpos, double ypos
     }
 }
 
-void CameraView::calculateZoom(double yoffset) {
+void Camera::calculateZoom(double yoffset) {
     fov -= (float)yoffset;
     if (fov < 1.0f)
         fov = 1.0f;
@@ -117,7 +117,7 @@ void CameraView::calculateZoom(double yoffset) {
     //a single function at viewport update
 }
 
-void CameraView::uploadIntrinsics(GLuint program) {
+void Camera::uploadIntrinsics(GLuint program, int instanceCounts) {
     float htany = tan(glm::radians(fov / 2));
     float htanx = htany / height * width;
     float focal_z = height / (2 * htany);
@@ -127,9 +127,12 @@ void CameraView::uploadIntrinsics(GLuint program) {
     GLuint location = glGetUniformLocation(program, "hfov_focal");
     if (location != -1)
         glUniform3fv(location, 1, glm::value_ptr(hfov_focal));
+    location = glGetUniformLocation(program, "instancesCount");
+    if (location != -1)
+        glUniform1i(location, instanceCounts);
 }
 
-void CameraView::handleInput(GLFWwindow* window) {
+void Camera::handleInput(GLFWwindow* window) {
     static float deltaTime = 0.0f;
     static float lastFrameTime = 0.0f;
 

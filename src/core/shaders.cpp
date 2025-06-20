@@ -6,7 +6,7 @@
 // This is marching cubes shader for now
 const char* Shaders::vertexShader = R"(
     #version 460 core
-    layout (location = 0) in vec3 aPos;
+    layout (location = 3) in vec3 aPos;
     layout (location = 1) in vec3 aNormal;
 
     out vec3 Normal;
@@ -20,10 +20,10 @@ const char* Shaders::vertexShader = R"(
 
     void main() {
         gl_Position = projection * view * model * vec4(aPos, 1.0f);
-        FragPos = vec3(view * vec4(aPos, 1.0f));
+        //FragPos = vec3(view * vec4(aPos, 1.0f));
         vertexColor = vec3(0.94f, 0.9f, 0.69f);
-        WorldPos = aPos;
-        Normal = normalize(aNormal);
+        //WorldPos = aPos;
+        //Normal = normalize(aNormal);
     }
 )";
 
@@ -45,13 +45,13 @@ const char* Shaders::fragmentShader = R"(
                 discard;
             }
         }
-        vec3 lightDir = normalize(vec3(0, 0, 0) - FragPos);
+        //vec3 lightDir = normalize(vec3(0, 0, 0) - FragPos);
 
-        float diff = max(dot(Normal, lightDir), 0.0);
-        vec3 diffuse = diff * vec3(0.9, 0.9, 0.9);
+        //float diff = max(dot(Normal, lightDir), 0.0);
+        //vec3 diffuse = diff * vec3(0.9, 0.9, 0.9);
         // Ambient + diffuse
-        vec3 result = (0.3f + diffuse) * vertexColor; 
-        FragColor = vec4(result, 1.0f);
+        //vec3 result = (0.3f + diffuse) * vertexColor; 
+        FragColor = vec4(vertexColor, 1.0f);
     }
 )";
 
@@ -99,6 +99,7 @@ const char* Shaders::gaussianVertexShader = R"(
     uniform mat4 model;
     uniform mat4 projection;
     uniform vec3 hfov_focal;
+    uniform int instancesCount;
 
     out vec3 outColor;
     out float opacity;
@@ -154,10 +155,10 @@ const char* Shaders::gaussianVertexShader = R"(
         int index = indices[gl_InstanceID];
         int start_index = index * STRIDE;
         
-        vec3 mean = get_vec3(start_index);
-        vec3 base_SH = get_vec3(start_index + SH_OFFSET);
-        vec3 scale = get_vec3(start_index + SCALE_OFFSET);
-        vec4 rotation = get_vec4(start_index + ROT_OFFSET);
+        vec3 mean = get_vec3(index * 3);
+        vec3 base_SH = get_vec3(instancesCount * 3 + index * 3);
+        vec3 scale = get_vec3(instancesCount * 3 * 2 + instancesCount + index * 3);
+        vec4 rotation = get_vec4(index * 4 + instancesCount * 3 * 3 + instancesCount);
 
         mat3 cov3D = computeCov3D(normalize(rotation), scale);
 
@@ -219,7 +220,7 @@ const char* Shaders::gaussianVertexShader = R"(
 
         gl_Position = pos2d;
         outColor = vec3(base_SH * 0.282 + 0.5f);
-        opacity = gaussianData[start_index + OPACITY_OFFSET];
+        opacity = gaussianData[instancesCount * 3 * 2 + index];
     }
 )";
 
