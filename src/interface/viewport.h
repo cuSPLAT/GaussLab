@@ -20,7 +20,7 @@ struct Viewport {
     static void lookAtScene_all(const glm::vec3& centroid);
 
     const char* viewport_id;
-    std::unique_ptr<Camera> view_camera;
+    std::unique_ptr<CameraView> view_camera;
     bool mesh = true;
 
     glm::vec4 viewportPosData;

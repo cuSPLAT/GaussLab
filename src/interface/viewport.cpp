@@ -19,7 +19,7 @@ Viewport Viewport::viewports[5] = {};
 
 Viewport::Viewport(int width, int height){
     viewport_id = viewport_ids[Viewport::n_viewports];
-    view_camera = std::make_unique<Camera>(width, height);
+    view_camera = std::make_unique<CameraView>(width, height);
     mesh = true;
 
     // also for now

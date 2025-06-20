@@ -22,6 +22,15 @@ class Interface {
 
     nfdopendialogu8args_t args;
 
+    float uiFontSize = 17.0f;
+    
+    float windowWidth = 2000.0f;
+    float windowCenter = 500.0f;
+    int huThreshold = 300;
+    int faceCameraIndex = 1;
+    float gaussianScale = 1.0f;
+    std::string dicomDirectoryPath;
+
     void setupStyle();
 
 public:
