@@ -6,23 +6,16 @@
 #include <fstream>
 #include "includes/model.hpp"
 #include "includes/dicom_loader.hpp"
-#include "includes/engine.hpp"
 #include <thread>
 #include <omp.h>
 
 namespace fs = std::filesystem;
 
-torch::Tensor randomQuatTensor(long long n)
+const double C0 = 0.28209479177387814;
+torch::Tensor rgb2sh(const torch::Tensor &rgb)
 {
-    torch::Tensor u = torch::rand(n);
-    torch::Tensor v = torch::rand(n);
-    torch::Tensor w = torch::rand(n);
-    return torch::stack({
-        torch::sqrt(1 - u) * torch::sin(2 * PI * v),
-        torch::sqrt(1 - u) * torch::cos(2 * PI * v),
-        torch::sqrt(u) * torch::sin(2 * PI * w),
-        torch::sqrt(u) * torch::cos(2 * PI * w)
-    }, -1);
+    // Converts from RGB values [0,1] to the 0th spherical harmonic coefficient
+    return (rgb - 0.5) / C0;
 }
 
 SceneBE createSceneFromPlyData(const PlyData& data)
@@ -78,83 +71,6 @@ SceneBE createSceneFromPlyData(const PlyData& data)
     );
 
     return scene;
-}
-
-torch::Tensor Model::forward(CameraYassa& cam)
-{
-    const float fx = cam.fx;
-    const float fy = cam.fy;
-    const float cx = cam.cx;
-    const float cy = cam.cy;
-    const int height = static_cast<int>(static_cast<float>(cam.height));
-    const int width = static_cast<int>(static_cast<float>(cam.width));
-
-    torch::Tensor R_mat = cam.camToWorld.index({Slice(None, 3), Slice(None, 3)});
-    torch::Tensor T_vec = cam.camToWorld.index({Slice(None, 3), Slice(3,4)});
-
-    // Flip the z and y axes to align with gsplat conventions
-    R_mat = torch::matmul(R_mat, torch::diag(torch::tensor({1.0f, -1.0f, -1.0f}, R_mat.device())));
-
-    // worldToCam
-    torch::Tensor Rinv = R_mat.transpose(0, 1);
-    torch::Tensor Tinv = torch::matmul(-Rinv, T_vec);
-
-    torch::Tensor viewMat = torch::eye(4, device);
-    viewMat.index_put_({Slice(None, 3), Slice(None, 3)}, Rinv);
-    viewMat.index_put_({Slice(None, 3), Slice(3, 4)}, Tinv);
-        
-    float fovX = 2.0f * std::atan(width / (2.0f * fx));
-    float fovY = 2.0f * std::atan(height / (2.0f * fy));
-
-    float tanHalfFovX = std::tan(0.5f * fovX);
-    float tanHalfFovY = std::tan(0.5f * fovY);
-    torch::Tensor projMat = torch::zeros({4, 4}, torch::dtype(torch::kFloat32).device(device));
-    projMat.index_put_({0, 0}, 1.0f / tanHalfFovX);
-    projMat.index_put_({1, 1}, 1.0f / tanHalfFovY);
-    projMat.index_put_({2, 2}, 1.0f );
-    projMat.index_put_({3, 2}, 1.0f);
-
-    TileBounds tileBounds = std::make_tuple((width + BLOCK_X - 1) / BLOCK_X,
-                    (height + BLOCK_Y - 1) / BLOCK_Y,
-                    1);
-
-    auto p_tuple = custom_ops::ProjectGaussians::forward(means,
-        torch::exp(scales),
-        1.0f, 
-        quats / quats.norm(2, {-1}, true),
-        viewMat,
-        torch::matmul(projMat, viewMat),
-        fx, fy, cx, cy,
-        height, width,
-        tileBounds,
-        0.01f);
-
-    xys = std::get<0>(p_tuple);
-    torch::Tensor depths_from_proj = std::get<1>(p_tuple);
-    radii = std::get<2>(p_tuple);
-    torch::Tensor conics_from_proj = std::get<3>(p_tuple);
-    torch::Tensor numTilesHit_from_proj = std::get<4>(p_tuple);
-
-    if (radii.sum().item<float>() == 0.0f)
-        return backgroundColor.repeat({height, width, 1});
-
-    torch::Tensor gaussian_colors = sh2rgb(featuresDc);
-
-    torch::Tensor rgb_output = custom_ops::RasterizeGaussians::forward(
-            xys,
-            depths_from_proj,
-            radii,
-            conics_from_proj,
-            numTilesHit_from_proj,
-            gaussian_colors,
-            torch::sigmoid(opacities),
-            height,
-            width,
-            backgroundColor);
-
-    rgb_output = torch::clamp_max(rgb_output, 1.0f);
-
-    return rgb_output;
 }
 
 PlyData Model::getPlyData()

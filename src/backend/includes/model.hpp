@@ -4,11 +4,11 @@
 
 #include <iostream>
 #include <torch/torch.h>
-#include "engine.hpp"
 #include "includes/dicom_loader.hpp"
 #include "knn.hpp"
 
 using namespace torch::indexing;
+torch::Tensor rgb2sh(const torch::Tensor &rgb);
 
 struct PlyData
 {
@@ -27,7 +27,6 @@ struct SceneBE
   float centroid[3] = {0.0f, 0.0f, 0.0f};
 };
 
-torch::Tensor randomQuatTensor(long long n);
 struct Model
 {
   Model(const InputData &inputData,
@@ -43,7 +42,9 @@ struct Model
       torch::Tensor initial_scales = spatial_grid_knn_scales(means, 4); // 4 = self + 3 neighbors
       scales = initial_scales.repeat({1, 3}).log();
       
-      quats = randomQuatTensor(numPoints).to(device);
+      torch::Tensor identity_quat = torch::tensor({0.0f, 0.0f, 0.0f, 1.0f}, 
+                                    torch::dtype(torch::kFloat32).device(device));
+      quats = identity_quat.repeat({numPoints, 1});
 
       // featuresDc = rgb2sh(inputData.points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32).to(device);
       featuresDc = rgb2sh(inputData.points.rgb).to(device);
@@ -51,7 +52,6 @@ struct Model
       backgroundColor = torch::zeros({1}, device);
   }
 
-  torch::Tensor forward(CameraYassa& cam);
   PlyData getPlyData();
   // void savePly(const std::string &filename);
   // void savePlyOptimized(const std::string &filename);

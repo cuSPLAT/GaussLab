@@ -4,7 +4,6 @@
 #include <chrono>
 
 #include "includes/model.hpp"
-#include "includes/engine.hpp"
 #include "includes/dicom_loader.hpp"
 
 #define EXIT_SUCCESS 0
@@ -36,8 +35,7 @@ int main(int argc, char *argv[])
         coutVerification(inputData);
         
         Model model(inputData, device);
-        Camera& cam = inputData.cameras[0];
-        model.forward(cam);
+        CameraYassa& cam = inputData.cameras[0];
 
         PlyData plyData = model.getPlyData();
 
