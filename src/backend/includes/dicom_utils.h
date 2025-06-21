@@ -19,8 +19,12 @@ namespace DicomTags_NG
     constexpr dcmcore::Tag ImagePositionPatient(0x0020, 0x0032);
     constexpr dcmcore::Tag ImageOrientationPatient(0x0020, 0x0037);
     constexpr dcmcore::Tag PixelSpacing(0x0028, 0x0030);
+
     constexpr dcmcore::Tag Rows(0x0028, 0x0010);
     constexpr dcmcore::Tag Columns(0x0028, 0x0011);
+
+    constexpr dcmcore::Tag RescaleSlope(0x0028, 0x1053);
+    constexpr dcmcore::Tag RescaleIntercept(0x0028, 0x1052);
 }
 
 namespace dcm
@@ -129,6 +133,13 @@ namespace dcm
 
     inline unsigned short getColumns(dcmcore::DataSet& dataSet, unsigned short defaultValue = 0)
     { return getUSTagValue(dataSet, DicomTags_NG::Columns, defaultValue); }
+
+    inline double getRescaleSlope(dcmcore::DataSet& dataSet, double defaultValue = 1.0)
+    { return getUSTagValue(dataSet, DicomTags_NG::RescaleSlope, defaultValue); }
+
+    inline double getRescaleIntercept(dcmcore::DataSet& dataSet, double defaultValue = 0.0)
+    { return getUSTagValue(dataSet, DicomTags_NG::RescaleIntercept, defaultValue); }
+
 
 } // namespace dcm
 

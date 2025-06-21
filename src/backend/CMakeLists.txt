@@ -52,7 +52,7 @@ if(GPU_RUNTIME STREQUAL "CUDA")
         endif()
         if(NOT MAX_CUDA_COMPATIBILITY)
             if(NOT CMAKE_CUDA_ARCHITECTURES)
-                SET(CMAKE_CUDA_ARCHITECTURES 75)
+                SET(CMAKE_CUDA_ARCHITECTURES 86)
                 # SET(CMAKE_CUDA_ARCHITECTURES 70;75;80)
             endif()
         else()
@@ -117,22 +117,6 @@ if (NOT WIN32 AND NOT APPLE)
     set(CMAKE_CUDA_COMPILER "${CUDA_TOOLKIT_ROOT_DIR}/bin/nvcc")
 endif()
 
-set(GSPLAT_LIBS gsplat)
-if(GPU_RUNTIME STREQUAL "CUDA")
-    add_library(gsplat gsplat/forward.cu gsplat/bindings.cu gsplat/helpers.cuh)
-    # list(APPEND GSPLAT_LIBS gsplat)
-    if(GPU_RUNTIME STREQUAL "CUDA")
-        set(GPU_LIBRARIES "cuda")
-        target_link_libraries(gsplat PUBLIC cuda)
-    endif()
-    target_include_directories(gsplat PRIVATE
-        ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-        ${TORCH_INCLUDE_DIRS}
-    )
-    #target_link_libraries(gsplat PUBLIC glm::glm-header-only)
-    set_target_properties(gsplat PROPERTIES LINKER_LANGUAGE CXX)
-endif()
-
 set(DCMCORE_FILES
     dcmcore/binary_file.cpp
     dcmcore/data_dictionary.cpp
@@ -150,9 +134,7 @@ set(DCMCORE_FILES
 set(SRC_FILES 
     knn.cu
     dicom_loader.cpp
-    engine.cpp
     model.cpp
-    #main.cpp
 )
 
 add_library(${PROJECT_NAME} STATIC ${DCMCORE_FILES} ${SRC_FILES})
@@ -168,7 +150,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PUBLIC
     ${STDPPFS_LIBRARY}
     ${GPU_LIBRARIES}
-    gsplat
     ${TORCH_LIBRARIES}
 )
 if (Pangolin_FOUND)

@@ -172,6 +172,9 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
             auto iop_opt = dcm::getImageOrientationPatient(thread_local_dataSet);
             auto ps_opt = dcm::getPixelSpacing(thread_local_dataSet);
 
+            const double rescale_slope = dcm::getRescaleSlope(thread_local_dataSet);
+            const double rescale_intercept = dcm::getRescaleIntercept(thread_local_dataSet);
+
             if (!W || !H || !ipp_opt || !iop_opt || !ps_opt)
             {
                 #pragma omp critical
@@ -257,15 +260,16 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
                      if (thread_local_dataSet.endian() != dcmcore::PlatformEndian()) {
                         raw_val_s16 = dcmcore::byteswap(raw_val_s16);
                     }
-                    double raw_value_double = static_cast<double>(raw_val_s16);
+                    // double raw_value_double = static_cast<double>(raw_val_s16);
+                    double hu_value = static_cast<double>(raw_val_s16) * rescale_slope + rescale_intercept;
 
                     // Create 8-bit image
-                    double norm_val = std::max(0.0, std::min(1.0, (raw_value_double - hu_min) / window_range));
+                    double norm_val = std::max(0.0, std::min(1.0, (hu_value - hu_min) / window_range));
                     image_bytes[pixel_idx] = static_cast<unsigned char>(norm_val * 255.0);
 
                     if ((r % POINT_CLOUD_DOWNSAMPLE == 0) && (c % POINT_CLOUD_DOWNSAMPLE == 0))
                     {
-                        if (raw_value_double > HU_THRESHOLD)
+                        if (hu_value > HU_THRESHOLD)
                         {
                              std::array<double, 3> pt_3d;
                              // P = IPP + (c * ColSpacing * ColVector) + (r * RowSpacing * RowVector)

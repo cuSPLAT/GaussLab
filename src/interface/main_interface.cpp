@@ -14,7 +14,6 @@
 #include <optional>
 #include <tools/tools.h>
 #include "backend/includes/model.hpp"
-#include "backend/includes/engine.hpp"
 #include "backend/includes/dicom_loader.hpp"
 
 #include <chrono>
