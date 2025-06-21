@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
         coutVerification(inputData);
         
         Model model(inputData, device);
-        CameraYassa& cam = inputData.cameras[0];
+        // CameraYassa& cam = inputData.cameras[0];
 
         PlyData plyData = model.getPlyData();
 
