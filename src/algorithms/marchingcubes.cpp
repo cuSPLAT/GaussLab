@@ -164,7 +164,7 @@ void MarchingCubes::launchThreaded(
 }
 
 void MarchingCubes::cleanUp() {
-    LOG("Cleaning running threads for Marching Cubes")
+    LOG_CLIENT("Cleaning running threads for Marching Cubes")
 
     for (auto& thread : threads) {
         thread.join();

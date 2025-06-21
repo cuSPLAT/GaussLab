@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <memory>
 #include <atomic>
+#include <torch/serialize/input-archive.h>
 #include <vector>
 #define GLFW_INCLUDE_NONE
 
@@ -21,6 +22,16 @@ struct Scene {
     size_t verticesCount = 0;
     size_t bufferSize;
     glm::vec3 centroid;
+};
+
+struct GPUScene {
+    torch::Tensor means;
+    torch::Tensor colors;
+    torch::Tensor opacities;
+    torch::Tensor scales;
+    torch::Tensor quats;
+
+    size_t bufferSize;
 };
 
 // A global state for the renderer, this will be used to pass data between classes
@@ -69,6 +80,8 @@ class Renderer {
 
     unsigned int width, height;
 
+    void allocateGaussianQuad();
+    void allocateSortingBuffers();
     void processGaussianSplats(int i);
 
 // for public variables, to make the code cleaner
@@ -87,6 +100,7 @@ public:
 
     void constructMeshScene(std::vector<Vertex>& vertices);
     void constructSplatScene(Scene* scene);
+    void constructSplatSceneFromGPU(GPUScene& scene);
 
     void render(GLFWwindow* window);
 };

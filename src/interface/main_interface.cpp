@@ -310,23 +310,14 @@ void Interface::startMainLoop() {
                             std::cout << device << "\n";
                             InputData inputData = inputDataFromDicom(dicomDirectoryPath, windowWidth, windowCenter, huThreshold, 1, faceCameraIndex);
                             Model model(inputData, device);
-                            //CameraYassa& cam = inputData.cameras[0];
-                            //model.forward(cam);
-                            PlyData plyData = model.getPlyData();
-
-                            std::cout << "scene data buffer for viewer..." << std::endl;
-                            SceneBE scene = createSceneFromPlyData(plyData);
-                            Scene yassas_scene = {
-                                .sceneDataBuffer = std::move(scene.sceneDataBuffer),
-                                .interleavedBuffer = false,
-                                .verticesCount = scene.verticesCount,
-                                .bufferSize = scene.bufferSize,
-                                .centroid = {scene.centroid[0], scene.centroid[1], scene.centroid[2]}
+                            GPUScene reconstructedScene = {
+                                .means = model.means,
+                                .colors = model.featuresDc,
+                                .opacities = 1 / (1 + torch::exp(-model.opacities)),
+                                .scales = torch::exp(model.scales),
+                                .quats = model.quats,
                             };
-                            std::cout << "Centroid: " << scene.centroid[0] << " " << scene.centroid[1] << " " << scene.centroid[2] << std::endl;
-                            //savePly("test.ply", plyData);
-                            renderer->constructSplatScene(&yassas_scene);
-                            yassas_scene.sceneDataBuffer.reset();
+                            renderer->constructSplatSceneFromGPU(reconstructedScene);
                         }
                     }
 

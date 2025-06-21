@@ -67,6 +67,8 @@ struct Model
   
   torch::Tensor backgroundColor;
   torch::Device device;
+
+  size_t bufferSize;
 };
 
 void savePly(const std::string &filename, const PlyData& data);

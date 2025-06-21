@@ -131,7 +131,7 @@ void DicomReader::loadData_thread(int threadidx, float* buffer, int signed_value
 }
 
 void DicomReader::cleanupThreads() {
-    LOG("Cleaning running threads for DICOM Loading")
+    LOG_CLIENT("Cleaning running threads for DICOM Loading")
 
     for (auto& thread : threads)
         thread.join();

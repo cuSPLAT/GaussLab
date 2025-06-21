@@ -6,6 +6,7 @@
 #include <cuda/render_utils.h>
 #include <cuda/debug_utils.h>
 
+#include <driver_types.h>
 #include <interface/viewport.h>
 
 #include <cstddef>
@@ -32,6 +33,20 @@ GlobalState globalState;
 Renderer::Renderer(int width, int height):
     width(width), height(height) {}
 
+void Renderer::allocateGaussianQuad() {
+    // the data of the rectangle that a Gaussian will occupy
+    glGenBuffers(1, &quadVBO);
+    glGenBuffers(1, &quadEBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(2);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
+}
+
 void Renderer::generateInitialBuffers() {
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
@@ -42,10 +57,8 @@ void Renderer::generateInitialBuffers() {
     glGenBuffers(1, &sorted_depthBuffer_gl);
     glGenBuffers(1, &sorted_depthIndices_gl);
 
-    glGenBuffers(1, &quadVBO);
-    glGenBuffers(1, &quadEBO);
-
     glGenBuffers(1, &gaussianDataBuffer);
+    allocateGaussianQuad();
     
     GLuint PCDVertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(PCDVertexShader, 1, &Shaders::vertexShader, nullptr);
@@ -68,16 +81,6 @@ void Renderer::generateInitialBuffers() {
     glCompileShader(GaussianFragmentShader);
     
     //TODO: move this to a macro or inline function
-    int  success;
-    char infoLog[512];
-    glGetShaderiv(PCDFragmentShader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
-        glGetShaderInfoLog(PCDFragmentShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    
-    }    
-
     shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, PCDVertexShader);
     glAttachShader(shaderProgram, PCDFragmentShader);
@@ -100,6 +103,35 @@ void Renderer::generateInitialBuffers() {
     glDeleteShader(veryRealComputeShader);
     glDeleteShader(GaussianVertexShader);
 
+}
+
+void Renderer::allocateSortingBuffers() {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthBuffer_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(float), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, depthBuffer_gl);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthIndices_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(int), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, depthIndices_gl);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthBuffer_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(float), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sorted_depthBuffer_gl);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthIndices_gl);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(int), NULL, GL_DYNAMIC_READ);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, sorted_depthIndices_gl);
+
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&depth_buffer, depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&index_buffer, depthIndices_gl, cudaGraphicsRegisterFlagsNone), true)
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_depth_buffer, sorted_depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
+    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_index_buffer, sorted_depthIndices_gl, cudaGraphicsRegisterFlagsNone),true)
+
+    //*Ugly ahh code*
+    cu_buffers[0] = depth_buffer;
+    cu_buffers[1] = index_buffer;
+    cu_buffers[2] = sorted_depth_buffer;
+    cu_buffers[3] = sorted_index_buffer;
 }
 
 void Renderer::constructMeshScene(std::vector<Vertex>& vertices) {
@@ -134,8 +166,7 @@ void Renderer::constructSplatScene(Scene* scene) {
         offset = scene->verticesCount * 3 * sizeof(float);
     }
 
-    // this part is just extra memory used, this could be optimized to only use the
-    // means, or even better a single cuda kernel or a compute shader
+    //this could be optimized to be done in a compute shader or a cuda kernel
     GLuint gaussianMeans;
     glGenBuffers(1, &gaussianMeans);
     glBindBuffer(GL_ARRAY_BUFFER, gaussianMeans);
@@ -147,8 +178,96 @@ void Renderer::constructSplatScene(Scene* scene) {
     
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(3);
+    //TODO: When you are sure everything works, don't use VBOs for Gaussian data anymore
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, gaussianDataBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
+    allocateSortingBuffers();
 
-    // the data of the rectangle that a Gaussian will occupy
+    //TODO: understand this
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    gaussianSceneCreated = true;
+}
+
+void Renderer::constructSplatSceneFromGPU(GPUScene& scene) {
+    newScene = true;
+    //NOTE: GPUScene cannot be used after this, all buffers are cleared to save memory
+    gaussiansCount = scene.means.size(0);
+    size_t meansBytes = gaussiansCount * 3 * sizeof(float);
+    int floats_per_pt = 3  /*xyz*/ + 3 /*colors*/
+                          + 1 /*opacity*/ + 3 /*scale*/ + 4 /*quat*/;
+    size_t wholeBufferSize = gaussiansCount * floats_per_pt * sizeof(float);
+
+    void *gaussianMeans_glBuffer, *gaussianScene_glBuffer;
+    size_t gaussianMeans_size, gaussianSceneBuffer_size;
+    cudaGraphicsResource_t gaussianMeansResource, gaussianBufferResource;
+
+    GLuint gaussianMeans;
+    glGenBuffers(1, &gaussianMeans);
+    glBindBuffer(GL_ARRAY_BUFFER, gaussianMeans);
+    glBufferData(GL_ARRAY_BUFFER, meansBytes, nullptr, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    cudaGraphicsGLRegisterBuffer(&gaussianMeansResource, gaussianMeans, cudaGraphicsRegisterFlagsNone);
+    cudaGraphicsMapResources(1, &gaussianMeansResource);
+
+    cudaGraphicsResourceGetMappedPointer(&gaussianMeans_glBuffer, &gaussianMeans_size, gaussianMeansResource);
+    cudaMemcpy(gaussianMeans_glBuffer, scene.means.const_data_ptr(), meansBytes, cudaMemcpyDeviceToDevice);
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, gaussianDataBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, wholeBufferSize, nullptr, GL_STATIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+    cudaGraphicsGLRegisterBuffer(&gaussianBufferResource, gaussianDataBuffer, cudaGraphicsRegisterFlagsNone);
+    cudaGraphicsMapResources(1, &gaussianBufferResource);
+    cudaGraphicsResourceGetMappedPointer(&gaussianScene_glBuffer, &gaussianSceneBuffer_size, gaussianBufferResource);
+
+    size_t offset = 0;
+    cudaMemcpy(gaussianScene_glBuffer, scene.means.const_data_ptr(), meansBytes, cudaMemcpyDeviceToDevice);
+    offset += scene.means.size(0) * 3;
+    scene.means.reset();
+    cudaMemcpy(
+        (float*)gaussianScene_glBuffer + offset,
+        scene.colors.const_data_ptr(),
+        scene.colors.size(0) * 3 * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    );
+    offset += scene.colors.size(0) * 3;
+    scene.colors.reset();
+    cudaMemcpy(
+        (float*)gaussianScene_glBuffer + offset,
+        scene.opacities.const_data_ptr(),
+        scene.opacities.size(0) * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    );
+    offset += scene.opacities.size(0);
+    scene.opacities.reset();
+    cudaMemcpy(
+        (float*)gaussianScene_glBuffer + offset,
+        scene.scales.const_data_ptr(),
+        scene.scales.size(0) * 3 * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    );
+    offset += scene.scales.size(0) * 3;
+    scene.scales.reset();
+    cudaMemcpy(
+        (float*)gaussianScene_glBuffer + offset,
+        scene.quats.const_data_ptr(),
+        scene.quats.size(0) * 4 * sizeof(float),
+        cudaMemcpyDeviceToDevice
+    );
+    scene.quats.reset();
+
+    cudaGraphicsUnmapResources(1, &gaussianMeansResource);
+    cudaGraphicsUnmapResources(1, &gaussianBufferResource);
+    // Bind it to the shader position
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
+    allocateSortingBuffers();
+
+    glBindBuffer(GL_ARRAY_BUFFER, gaussianMeans);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(3);
+
     glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
@@ -156,44 +275,9 @@ void Renderer::constructSplatScene(Scene* scene) {
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
-    // -----------------------------------------------
-    
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthBuffer_gl);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(float), NULL, GL_DYNAMIC_READ);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, depthBuffer_gl);
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, depthIndices_gl);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(int), NULL, GL_DYNAMIC_READ);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, depthIndices_gl);
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthBuffer_gl);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(float), NULL, GL_DYNAMIC_READ);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, sorted_depthBuffer_gl);
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, sorted_depthIndices_gl);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, gaussiansCount * sizeof(int), NULL, GL_DYNAMIC_READ);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, sorted_depthIndices_gl);
-
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&depth_buffer, depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&index_buffer, depthIndices_gl, cudaGraphicsRegisterFlagsNone), true)
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_depth_buffer, sorted_depthBuffer_gl, cudaGraphicsRegisterFlagsNone), true)
-    CHECK_CUDA(cudaGraphicsGLRegisterBuffer(&sorted_index_buffer, sorted_depthIndices_gl, cudaGraphicsRegisterFlagsNone),true)
-
-    //*Ugly ahh code*
-    cu_buffers[0] = depth_buffer;
-    cu_buffers[1] = index_buffer;
-    cu_buffers[2] = sorted_depth_buffer;
-    cu_buffers[3] = sorted_index_buffer;
-
-    //TODO: When you are sure everything works, don't use VBOs for Gaussian data anymore
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, gaussianDataBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, scene->bufferSize, scene->sceneDataBuffer.get(), GL_STATIC_DRAW);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, gaussianDataBuffer);
-    
-    //TODO: understand this
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
     gaussianSceneCreated = true;
 }
 

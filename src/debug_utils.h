@@ -1,6 +1,6 @@
 #pragma once
 
-#define LOG(x) std::cout << "[LOG] " << x << std::endl;
+#define LOG_CLIENT(x) std::cout << "[LOG] " << x << std::endl;
 
 #include <vector>
 
