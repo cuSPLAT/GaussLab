@@ -135,11 +135,16 @@ namespace dcm
     { return getUSTagValue(dataSet, DicomTags_NG::Columns, defaultValue); }
 
     inline double getRescaleSlope(dcmcore::DataSet& dataSet, double defaultValue = 1.0)
-    { return getUSTagValue(dataSet, DicomTags_NG::RescaleSlope, defaultValue); }
-
+    {
+        std::vector<double> values = getDSTagValues(dataSet, DicomTags_NG::RescaleSlope);
+        return values.empty() ? defaultValue : values[0];
+    }
+    
     inline double getRescaleIntercept(dcmcore::DataSet& dataSet, double defaultValue = 0.0)
-    { return getUSTagValue(dataSet, DicomTags_NG::RescaleIntercept, defaultValue); }
-
+    {
+        std::vector<double> values = getDSTagValues(dataSet, DicomTags_NG::RescaleIntercept);
+        return values.empty() ? defaultValue : values[0];
+    }
 
 } // namespace dcm
 

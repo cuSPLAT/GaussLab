@@ -22,7 +22,7 @@ class Interface {
 
     nfdopendialogu8args_t args;
 
-    float uiFontSize = 17.0f;
+    float uiFontSize = 20.0f;
     
     float windowWidth = 2000.0f;
     float windowCenter = 500.0f;
