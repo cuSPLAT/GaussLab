@@ -135,7 +135,6 @@ set(SRC_FILES
     knn.cu
     dicom_loader.cpp
     model.cpp
-    #main.cpp
 )
 
 add_library(${PROJECT_NAME} STATIC ${DCMCORE_FILES} ${SRC_FILES})
