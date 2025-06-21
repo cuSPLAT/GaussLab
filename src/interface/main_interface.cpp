@@ -115,6 +115,7 @@ std::string Interface::openFileDialog() {
     return path;
 }
 
+
 void Interface::setupRenderer() {
     renderer->initializeRendererBuffer();
     renderer->generateInitialBuffers();
@@ -163,21 +164,6 @@ void Interface::startMainLoop() {
     static GLuint axialTex = 0, coronalTex = 0, sagittalTex = 0;
     static std::vector<unsigned char> axialBuf, coronalBuf, sagittalBuf;
     std::vector<ChatMessage> chatLog;
-
-
-    /////////////////////////////TO TEST ONLY //////////////////////////////////////
-    std::string path = "/home/zain/Downloads/fef7e115-c8c1c523-1e67bffb-13f9223d-1fec008f/55f205a41f404a069013d1728567bc8f Anonymized460/Unknown Study/CT/CT000000.dcm";
-
-    // Load DICOM once
-    DcmFileFormat fileFormat;
-    OFCondition status = fileFormat.loadFile(path.c_str());
-    if (!status.good()) {
-        std::cerr << "Failed to load DICOM: " << status.text() << std::endl;
-    }
-
-    DcmDataset* dataset = fileFormat.getDataset();
-    std::vector<DicomEntry> entries = loadDicomTags(path);
-    /////////////////////////////////////////////////////////////////////////////////
     
     while (!glfwWindowShouldClose(window)) {
         // Start ImGui frame
@@ -192,13 +178,14 @@ void Interface::startMainLoop() {
 
         createViewWindow();
         ShowViewerWindow(
-        axialSlice,coronalSlice, sagittalSlice,
-        axialTex, coronalTex, sagittalTex,
-        axialBuf,
-        coronalBuf,
-        sagittalBuf);
+            axialSlice, coronalSlice, sagittalSlice,
+            axialTex, coronalTex, sagittalTex,
+            axialBuf,
+            coronalBuf,
+            sagittalBuf);
         ShowChatWindow(axialSlice, chatLog);
-        ShowDicomViewer(entries, dataset);
+        // Only reload DICOM tag entries if the file changes
+        ShowDicomViewer(dcmReader);
 
         if (ImGui::Begin("Debug")) {
             ImGui::InputScalar(
@@ -450,51 +437,40 @@ void Interface::ShowViewerWindow(
     std::vector<unsigned char>& sagittalBuf
 ){
     const auto& dicom = getDicomReader().loadedData;
+    
+    // Check if DICOM data is valid before accessing it
+    if (!dicom.buffer || dicom.width <= 0 || dicom.length <= 0 || dicom.height <= 0) {
+        ImGui::Begin("CT Viewer");
+        ImGui::Text("No valid DICOM data loaded");
+        ImGui::Text("Please load a DICOM directory first");
+        ImGui::End();
+        return;
+    }
+    
     const int width = dicom.width;
     const int height = dicom.length;
     const int depth = dicom.height;
 
-    // TODO: Replace these with actual values from your DICOM metadata
-    float pixelSpacingX = 1.0f; // mm
-    float pixelSpacingY = 1.0f; // mm
-    float pixelSpacingZ = 12.0f; // mm
+    // Clamp slice indices to valid ranges
+    axialSlice = std::clamp(axialSlice, 0, depth - 1);
+    coronalSlice = std::clamp(coronalSlice, 0, height - 1);
+    sagittalSlice = std::clamp(sagittalSlice, 0, width - 1);
+
+    float pixelSpacingX = dicom.pixelSpacingX;
+    float pixelSpacingY = dicom.pixelSpacingY;
+    float pixelSpacingZ = dicom.sliceThickness;
 
     ImGui::Begin("CT Viewer");
 
     bool changed = false;
 
-    // Sliders (always reflect current value)
-    changed |= ImGui::SliderInt("Axial (Z)", &axialSlice, 0, depth - 1);
-    changed |= ImGui::SliderInt("Coronal (Y)", &coronalSlice, 0, height - 1);
-    changed |= ImGui::SliderInt("Sagittal (X)", &sagittalSlice, 0, width - 1);
-
-    float viewerWidth = ImGui::GetContentRegionAvail().x;
-    float maxSliceWidth = std::min(viewerWidth - 20.0f, 512.0f);
-
-    // Calculate display sizes using pixel spacing
-    float axialWidth = maxSliceWidth;
-    float axialHeight = maxSliceWidth * (height * pixelSpacingY) / (width * pixelSpacingX);
-
-    float coronalWidth = maxSliceWidth;
-    float coronalHeight = maxSliceWidth * (depth * pixelSpacingZ) / (width * pixelSpacingX);
-
-    float sagittalWidth = maxSliceWidth;
-    float sagittalHeight = maxSliceWidth * (depth * pixelSpacingZ) / (height * pixelSpacingY);
-
     // Axial View
     ImGui::PushID("axial");
     ImGui::Text("Axial");
-    ImVec2 axialPos = ImGui::GetCursorScreenPos();
+    changed |= ImGui::SliderInt("Axial (Z)", &axialSlice, 0, depth - 1);
+    float axialWidth = std::min(ImGui::GetContentRegionAvail().x, 512.0f);
+    float axialHeight = axialWidth * (height * pixelSpacingY) / (width * pixelSpacingX);
     ImGui::Image((ImTextureID)(intptr_t)axialTex, ImVec2(axialWidth, axialHeight));
-    ImVec2 axialEnd = ImGui::GetCursorScreenPos();
-    if (ImGui::IsMouseHoveringRect(axialPos, axialEnd)) {
-        float wheel = ImGui::GetIO().MouseWheel;
-        if (wheel != 0.0f) {
-            int old = axialSlice;
-            axialSlice = std::clamp(axialSlice - static_cast<int>(wheel), 0, depth - 1);
-            if (axialSlice != old) changed = true;
-        }
-    }
     ImGui::PopID();
     ImGui::Spacing();
     ImGui::Separator();
@@ -503,17 +479,10 @@ void Interface::ShowViewerWindow(
     // Coronal View
     ImGui::PushID("coronal");
     ImGui::Text("Coronal");
-    ImVec2 coronalPos = ImGui::GetCursorScreenPos();
+    changed |= ImGui::SliderInt("Coronal (Y)", &coronalSlice, 0, height - 1);
+    float coronalWidth = std::min(ImGui::GetContentRegionAvail().x, 512.0f);
+    float coronalHeight = coronalWidth * (depth * pixelSpacingZ) / (width * pixelSpacingX);
     ImGui::Image((ImTextureID)(intptr_t)coronalTex, ImVec2(coronalWidth, coronalHeight));
-    ImVec2 coronalEnd = ImGui::GetCursorScreenPos();
-    if (ImGui::IsMouseHoveringRect(coronalPos, coronalEnd)) {
-        float wheel = ImGui::GetIO().MouseWheel;
-        if (wheel != 0.0f) {
-            int old = coronalSlice;
-            coronalSlice = std::clamp(coronalSlice - static_cast<int>(wheel), 0, height - 1);
-            if (coronalSlice != old) changed = true;
-        }
-    }
     ImGui::PopID();
     ImGui::Spacing();
     ImGui::Separator();
@@ -522,17 +491,10 @@ void Interface::ShowViewerWindow(
     // Sagittal View
     ImGui::PushID("sagittal");
     ImGui::Text("Sagittal");
-    ImVec2 sagittalPos = ImGui::GetCursorScreenPos();
+    changed |= ImGui::SliderInt("Sagittal (X)", &sagittalSlice, 0, width - 1);
+    float sagittalWidth = std::min(ImGui::GetContentRegionAvail().x, 512.0f);
+    float sagittalHeight = sagittalWidth * (depth * pixelSpacingZ) / (height * pixelSpacingY);
     ImGui::Image((ImTextureID)(intptr_t)sagittalTex, ImVec2(sagittalWidth, sagittalHeight));
-    ImVec2 sagittalEnd = ImGui::GetCursorScreenPos();
-    if (ImGui::IsMouseHoveringRect(sagittalPos, sagittalEnd)) {
-        float wheel = ImGui::GetIO().MouseWheel;
-        if (wheel != 0.0f) {
-            int old = sagittalSlice;
-            sagittalSlice = std::clamp(sagittalSlice - static_cast<int>(wheel), 0, width - 1);
-            if (sagittalSlice != old) changed = true;
-        }
-    }
     ImGui::PopID();
 
     // Update textures if any change (slider or scroll)
@@ -559,22 +521,21 @@ void Interface::ShowViewerWindow(
 void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog) {
     static char inputBuffer[1024] = "";  // User input for prompt
     static bool shouldScrollToBottom = false;
+    static int typingPosition = 0;
+    static float typingTimer = 0.0f;
+    static std::string currentTypingMessage = "";
 
     ImGui::Begin("Gemini Assistant", nullptr, ImGuiWindowFlags_NoCollapse);
 
-    // Calculate available height for chat log (window height minus input area and padding)
-    float windowHeight = ImGui::GetWindowHeight();
-    float inputHeight = 40.0f;  // Height for input area
-    float padding = 10.0f;      // Padding between elements
-    float chatLogHeight = windowHeight - inputHeight - padding * 2;
-
-    // Chat Log Area
+    float inputHeight = ImGui::GetFrameHeightWithSpacing() * 2; // or a small constant if you want
+    float chatLogHeight = ImGui::GetContentRegionAvail().y - inputHeight;
     ImGui::BeginChild("ChatLog", ImVec2(0, chatLogHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
     
     // Add some padding at the top
     ImGui::Spacing();
     
-    for (const auto& message : chatLog) {
+    for (size_t i = 0; i < chatLog.size(); ++i) {
+        const auto& message = chatLog[i];
         // Calculate text width for wrapping
         float wrapWidth = ImGui::GetWindowWidth() - 20.0f;  // Leave some margin
         
@@ -587,7 +548,12 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
         // Style for Gemini messages
         else {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.6f, 1.0f, 1.0f));  // Light blue for Gemini
-            ImGui::TextWrapped("%s", message.text.c_str());
+            if (i == chatLog.size() - 1 && !currentTypingMessage.empty()) {
+                std::string displayText = "Gemini: " + currentTypingMessage.substr(0, typingPosition);
+                ImGui::TextWrapped("%s", displayText.c_str());
+            } else {
+                ImGui::TextWrapped("%s", message.text.c_str());
+            }
             ImGui::PopStyleColor();
         }
         
@@ -612,6 +578,7 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
 
     // Create a horizontal layout for input and button
     float buttonWidth = 80.0f;
+    float padding = 10.0f;
     float inputWidth = ImGui::GetWindowWidth() - buttonWidth - padding * 2;
 
     ImGui::PushItemWidth(inputWidth);
@@ -620,12 +587,19 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
         // Handle Enter key press
         std::string inputText(inputBuffer);
         if (!inputText.empty()) {
+            // Display user message immediately
             chatLog.push_back({"You: " + inputText, false});
+            shouldScrollToBottom = true;
+            inputBuffer[0] = '\0';
+            
+            // Get response asynchronously (you might want to use a thread here)
             const auto& dicom = getDicomReader().loadedData;
             std::string response = getGeminiResponseWithImage(inputText, dicom, axialSlice);
+            // Start typing effect for the response
+            currentTypingMessage = response;
+            typingPosition = 0;
+            typingTimer = 0.0f;
             chatLog.push_back({"Gemini: " + response, true});
-            inputBuffer[0] = '\0';
-            shouldScrollToBottom = true;
         }
     }
     ImGui::PopItemWidth();
@@ -634,15 +608,32 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
     if (ImGui::Button("Send", ImVec2(buttonWidth, 0))) {
         std::string inputText(inputBuffer);
         if (!inputText.empty()) {
+            // Display user message immediately
             chatLog.push_back({"You: " + inputText, false});
+            shouldScrollToBottom = true;
+            inputBuffer[0] = '\0';
+            
+            // Get response asynchronously
             const auto& dicom = getDicomReader().loadedData;
             std::string response = getGeminiResponseWithImage(inputText, dicom, axialSlice);
+            // Start typing effect for the response
+            currentTypingMessage = response;
+            typingPosition = 0;
+            typingTimer = 0.0f;
             chatLog.push_back({"Gemini: " + response, true});
-            inputBuffer[0] = '\0';
-            shouldScrollToBottom = true;
         }
         else {
             chatLog.push_back({"Gemini: Please enter a prompt.", true});
+            shouldScrollToBottom = true;
+        }
+    }
+
+    // Update typing effect
+    if (!currentTypingMessage.empty() && typingPosition < currentTypingMessage.length()) {
+        typingTimer += ImGui::GetIO().DeltaTime;
+        if (typingTimer >= 0.02f) { // Faster typing (0.02 = 50 characters per second)
+            typingPosition++;
+            typingTimer = 0.0f;
             shouldScrollToBottom = true;
         }
     }

@@ -11,6 +11,7 @@
 
 class DicomReader {
     std::vector<vega::dicom::File> dicomFiles;
+    std::vector<std::string> dicomFilePaths;
 
     std::vector<std::thread> threads;
 
@@ -19,9 +20,16 @@ public:
     // initialized with a large number so the loading bar can work instantly
     std::atomic<std::uint64_t> totalSize {10000000};
 
+    const std::vector<vega::dicom::File>& getDicomFiles() const { return dicomFiles; }
+    const std::vector<std::string>& getDicomFilePaths() const { 
+        return dicomFilePaths; }
+
     struct DicomData {
         std::unique_ptr<float[]> buffer;
         int width, length, height;
+        float pixelSpacingX = 1.0f;
+        float pixelSpacingY = 1.0f;
+        float sliceThickness = 1.0f;
 
         std::atomic_flag readable {};
     };

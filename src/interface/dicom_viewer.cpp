@@ -2,42 +2,90 @@
 #include <imgui.h>
 #include <sstream>
 #include <iomanip>
+#include <vega/dicom/file.h>
+#include <vega/dictionary/dictionary.h>
+#include <vega/dicom/data_set.h>
+#include <vega/dicom/data_element.h>
+#include <fstream>
+#include "data_reader/dicom_reader.h"
 
 std::vector<DicomEntry> loadDicomTags(const std::string& path) {
     std::vector<DicomEntry> entries;
-    DcmFileFormat fileFormat;
-    OFCondition status = fileFormat.loadFile(path.c_str());
-
-    if (status.good()) {
-        DcmDataset* dataset = fileFormat.getDataset();
-        DcmStack stack;
-
-        while (dataset->nextObject(stack, true).good()) {
-            DcmObject* obj = stack.top();
-            DcmTag tag = obj->getTag();
-
-            DcmElement* elem = dynamic_cast<DcmElement*>(obj);
-            if (!elem) continue;
-
-            OFString valueStr;
-            std::string value = "<Could not read>";
-            if (tag == DCM_PixelData) {
-                value = "<Pixel Data not shown>";
-            } else if (elem->getOFString(valueStr, 0).good()) {
-                value = valueStr.c_str();
-            }
-
-            entries.push_back({
-                tag,
-                tag.getTagName(),
-                value
-            });
+    try {
+        // Check if file exists and is readable
+        std::ifstream fileCheck(path, std::ios::binary);
+        if (!fileCheck.good()) {
+            std::cerr << "Error: Cannot open file: " << path << std::endl;
+            return entries;
         }
+        
+        fileCheck.seekg(0, std::ios::end);
+        if (fileCheck.tellg() == 0) {
+            std::cerr << "Error: DICOM file is empty: " << path << std::endl;
+            return entries;
+        }
+        fileCheck.close();
+
+        vega::dicom::File file(path);
+        auto dataset = file.data_set();
+        
+        if (!dataset) {
+            std::cerr << "Error: Could not read dataset from file: " << path << std::endl;
+            return entries;
+        }
+
+        for (auto it = dataset->begin(); it != dataset->end(); ++it) {
+            try {
+                auto element = *it;
+                if (!element) continue;
+                
+                vega::Tag tag = element->tag();
+                std::string tagName;
+                auto page = vega::dictionary::Dictionary::instance().page_for(tag);
+                if (page) {
+                    tagName = page->name();
+                } else {
+                    tagName = "Unknown";
+                }
+                std::string value = "<Could not read>";
+                if (tag == vega::Tag::PIXEL_DATA) {
+                    value = "<Pixel Data not shown>";
+                } else {
+                    try {
+                        value = element->str();
+                    } catch (const std::exception& e) {
+                        value = "<Could not read>";
+                    }
+                }
+                entries.push_back({tag, tagName, value});
+            } catch (const std::exception& e) {
+                std::cerr << "Warning: Error reading element: " << e.what() << std::endl;
+                continue;
+            }
+        }
+    } catch (const vega::Exception& e) {
+        std::cerr << "Vega Exception reading DICOM file " << path << ": " << e.what() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Exception reading DICOM file " << path << ": " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown error reading DICOM file: " << path << std::endl;
     }
     return entries;
 }
 
-void ShowDicomViewer(std::vector<DicomEntry>& entries, DcmDataset* dataset) {
+void ShowDicomViewer(DicomReader& dcmReader) {
+    // Only reload DICOM tag entries if the file changes
+    static std::string lastDicomPath;
+    static std::vector<DicomEntry> entries;
+    const auto& dicomFilePaths = dcmReader.getDicomFilePaths();
+
+    if (!dicomFilePaths.empty()) {
+        if (dicomFilePaths[0] != lastDicomPath) {
+            entries = loadDicomTags(dicomFilePaths[0]);
+            lastDicomPath = dicomFilePaths[0];
+        }
+    }
+
     static char groupInput[5] = "";
     static char elementInput[5] = "";
     static std::string searchResult = "";
@@ -48,11 +96,7 @@ void ShowDicomViewer(std::vector<DicomEntry>& entries, DcmDataset* dataset) {
 
     // --- Search Tag Input Fields & Button ---
     ImGui::Text("Search Tag:");
-    
-    // Input fields will take full available width, stacked vertically for clear visibility
     float inputFieldWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) / 2;
-    
-    // Explicitly set width for each input field
     ImGui::SetNextItemWidth(inputFieldWidth);
     ImGui::InputTextWithHint("##Group", "Group (hex)", groupInput, sizeof(groupInput), ImGuiInputTextFlags_CharsHexadecimal);
     ImGui::SameLine();
@@ -68,19 +112,22 @@ void ShowDicomViewer(std::vector<DicomEntry>& entries, DcmDataset* dataset) {
         ss2 << std::hex << elementInput;
         ss2 >> element;
 
-        DcmTagKey key(group, element);
-        OFString val;
-        DcmTag tag(key);
-
-        if (dataset->findAndGetOFString(key, val).good()) {
-            std::string tagStr = tag.toString().c_str();
-            std::string tagName = tag.getTagName();
-            std::string valStr = val.c_str();
-            searchResult = "(" + tagStr + ") | " + tagName + ": " + valStr;
-        } else {
-            std::string tagStr = tag.toString().c_str();
-            std::string tagName = tag.getTagName();
-            searchResult = "(" + tagStr + ") | " + tagName + ": Not Found";
+        bool found = false;
+        for (const auto& entry : entries) {
+            if (entry.tag.group() == group && entry.tag.element() == element) {
+                std::stringstream tagStr;
+                tagStr << std::hex << std::uppercase << std::setfill('0')
+                       << "(" << std::setw(4) << group << "," << std::setw(4) << element << ")";
+                searchResult = tagStr.str() + " | " + entry.tagName + ": " + entry.value;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            std::stringstream tagStr;
+            tagStr << std::hex << std::uppercase << std::setfill('0')
+                   << "(" << std::setw(4) << group << "," << std::setw(4) << element << ")";
+            searchResult = tagStr.str() + ": Not Found";
         }
         shouldScrollSearchResult = true;
     }
@@ -91,7 +138,6 @@ void ShowDicomViewer(std::vector<DicomEntry>& entries, DcmDataset* dataset) {
 
     // --- Search Result Area (fixed height, always visible) ---
     ImGui::Text("Search Result:");
-    // Fixed height to ensure it's always on screen, enough for 3-4 lines of text
     float searchResultFixedH = ImGui::GetTextLineHeightWithSpacing() * 2 + ImGui::GetStyle().ItemSpacing.y * 2;
     ImGui::BeginChild("searchResultChild", ImVec2(0, searchResultFixedH), true, ImGuiWindowFlags_HorizontalScrollbar);
     ImGui::TextWrapped("%s", searchResult.c_str());
@@ -113,7 +159,7 @@ void ShowDicomViewer(std::vector<DicomEntry>& entries, DcmDataset* dataset) {
     for (size_t i = 0; i < std::min<size_t>(20, entries.size()); ++i) {
         const auto& entry = entries[i];
         ImGui::TextWrapped("(%04X,%04X) | %-30s: %s",
-            entry.tag.getGTag(), entry.tag.getETag(),
+            entry.tag.group(), entry.tag.element(),
             entry.tagName.c_str(), entry.value.c_str());
         ImGui::Spacing();
         ImGui::Separator();

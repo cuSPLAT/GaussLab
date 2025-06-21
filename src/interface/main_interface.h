@@ -52,7 +52,6 @@ public:
     void ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog);
     std::string openFileDialog();
 
-
     void createMenuBar();
     void createViewWindow();
     void createDockSpace();

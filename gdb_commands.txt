@@ -1,0 +1,9 @@
+set pagination off
+catch signal SIGSEGV
+commands
+bt
+bt full
+info registers
+continue
+end
+run

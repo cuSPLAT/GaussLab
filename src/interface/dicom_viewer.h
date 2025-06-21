@@ -1,14 +1,16 @@
 #pragma once
 
-#include <dcmtk/dcmdata/dctk.h>
+#include <vega/tag.h>
 #include <string>
 #include <vector>
 
+class DicomReader; // Forward declaration
+
 struct DicomEntry {
-    DcmTag tag;
+    vega::Tag tag;
     std::string tagName;
     std::string value;
 };
 
 std::vector<DicomEntry> loadDicomTags(const std::string& path);
-void ShowDicomViewer(std::vector<DicomEntry>& entries, DcmDataset* dataset); 
+void ShowDicomViewer(DicomReader& dcmReader); 
