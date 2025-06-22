@@ -22,7 +22,7 @@ find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-SET(CMAKE_CUDA_ARCHITECTURES 86)
+SET(CMAKE_CUDA_ARCHITECTURES 75)
 
 set(IMGUI_SOURCES
     "external/imgui/imgui.cpp"
@@ -38,6 +38,7 @@ set(IMGUI_SOURCES
 set(INTERFACE_SRC
     "src/interface/callbacks.cpp"
     "src/interface/main_interface.cpp"
+    "src/interface/viewport.cpp"
     "src/interface/dicom_viewer.cpp"
 )
 
@@ -74,16 +75,6 @@ include_directories(SYSTEM "external/vega/include")
 include_directories(SYSTEM "external/RadixSort")
 include_directories(/usr/local/cuda/include)
 
-set(SOURCES
-    src/main.cpp
-    src/interface/main_interface.cpp
-    src/interface/dicom_viewer.cpp
-    src/core/renderer.cpp
-    src/core/scene_loader.cpp
-    src/algorithms/marchingcubes.cpp
-    src/data_reader/dicom_reader.cpp
-    src/tools/tools.cpp
-)
 
 add_executable(
     GausStudio
@@ -95,8 +86,8 @@ add_executable(
     ${CORE}
     ${TOOLS}
     ${ALGORITHMS}
+    ${CUDA_UTILS}
     ${DATA_READER}
-    ${STB_IMPL}
     "external/glad/src/glad.c"
 )
 target_include_directories(GausStudio
