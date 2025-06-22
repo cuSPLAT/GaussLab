@@ -66,7 +66,6 @@ std::string getGeminiResponseWithImage(const std::string& prompt, const DicomRea
     };
 
     std::string jsonData = payload.dump();
-    std::cout << "Sending request to Gemini API..." << std::endl;
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
     curl = curl_easy_init();
@@ -87,7 +86,7 @@ std::string getGeminiResponseWithImage(const std::string& prompt, const DicomRea
             std::cerr << "curl_easy_perform() failed: " << curl_easy_strerror(res) << std::endl;
         } else {
             try {
-                std::cout << "Response received: " << readBuffer << std::endl;
+                // std::cout << "Response received: " << readBuffer << std::endl;
                 json responseJson = json::parse(readBuffer);
                 
                 // Check if the response has the expected structure

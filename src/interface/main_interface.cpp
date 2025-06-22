@@ -20,6 +20,14 @@
 #include "request.hpp"
 #include "dicom_viewer.h"
 
+void UpdateTextures(const DicomReader::DicomData& dicom,
+                    int axialSlice, int coronalSlice, int sagittalSlice,
+                    GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
+                    std::vector<unsigned char>& axialBuf,
+                    std::vector<unsigned char>& coronalBuf,
+                    std::vector<unsigned char>& sagittalBuf,
+                    float windowCenter, float windowWidth,
+                    bool enableWindowing);
 
 Interface::Interface() = default;
 
@@ -158,6 +166,9 @@ void Interface::startMainLoop() {
     static int axialSlice = 0, coronalSlice = 0, sagittalSlice = 0;
     static GLuint axialTex = 0, coronalTex = 0, sagittalTex = 0;
     static std::vector<unsigned char> axialBuf, coronalBuf, sagittalBuf;
+    static float windowCenter = 0.0f, windowWidth = 0.0f;
+    static bool dicom_just_loaded = false;
+    static bool enableWindowing = true;
     std::vector<ChatMessage> chatLog;
     
     while (!glfwWindowShouldClose(window)) {
@@ -166,7 +177,27 @@ void Interface::startMainLoop() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        createMenuBar();
+        if (dicom_just_loaded) {
+            const auto& dicom = dcmReader.loadedData;
+            windowCenter = dicom.windowCenter;
+            windowWidth = dicom.windowWidth;
+            axialSlice = dicom.height / 2;
+            coronalSlice = dicom.length / 2;
+            sagittalSlice = dicom.width / 2;
+            
+            if (axialTex) glDeleteTextures(1, &axialTex);
+            if (coronalTex) glDeleteTextures(1, &coronalTex);
+            if (sagittalTex) glDeleteTextures(1, &sagittalTex);
+            axialTex = coronalTex = sagittalTex = 0;
+
+            UpdateTextures(dicom, axialSlice, coronalSlice, sagittalSlice,
+                           axialTex, coronalTex, sagittalTex,
+                           axialBuf, coronalBuf, sagittalBuf,
+                           windowCenter, windowWidth, enableWindowing);
+            dicom_just_loaded = false;
+        }
+
+        createMenuBar(dicom_just_loaded);
         createDockSpace();
         ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
         ImGui::SetNextWindowDockID(dockspace_id, ImGuiCond_FirstUseEver);
@@ -177,7 +208,8 @@ void Interface::startMainLoop() {
             axialTex, coronalTex, sagittalTex,
             axialBuf,
             coronalBuf,
-            sagittalBuf);
+            sagittalBuf,
+            windowCenter, windowWidth, enableWindowing);
         ShowChatWindow(axialSlice, chatLog);
         // Only reload DICOM tag entries if the file changes
         ShowDicomViewer();
@@ -285,7 +317,7 @@ void Interface::startMainLoop() {
     MarchingCubes::cleanUp();
 }
 
-void Interface::createMenuBar() {
+void Interface::createMenuBar(bool& dicom_just_loaded) {
     // ok maybe this should me moved I don't know
     static bool launchPopup = false;
 
@@ -304,10 +336,12 @@ void Interface::createMenuBar() {
                 nfdu8char_t* path;
                 nfdresult_t result = NFD_PickFolderU8(&path, nullptr);
 
-                std::string dir_path(path);
-                NFD_FreePathU8(path);
-                dcmReader.launchReaderThread(dir_path);
-                launchPopup = true;
+                if (result == NFD_OKAY) {
+                    std::string dir_path(path);
+                    NFD_FreePathU8(path);
+                    dcmReader.launchReaderThread(dir_path);
+                    launchPopup = true;
+                }
                 // ------------------------------------------------
             }
             if (ImGui::MenuItem("Export OBJ")) {
@@ -328,9 +362,11 @@ void Interface::createMenuBar() {
         ImGui::Text("Loading Dicoms");
         ImGui::ProgressBar((float)dcmReader.loadingProgress/dcmReader.totalSize);
 
-        if (dcmReader.loadingProgress == dcmReader.totalSize && launchPopup) {
+        if (dcmReader.loadingProgress >= dcmReader.totalSize && dcmReader.totalSize > 0 && launchPopup) {
             launchPopup = false;
             dcmReader.loadingProgress = 0;
+            dcmReader.totalSize = 10000000;
+            dicom_just_loaded = true;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -386,41 +422,89 @@ void UpdateTextures(const DicomReader::DicomData& dicom,
                     GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
                     std::vector<unsigned char>& axialBuf,
                     std::vector<unsigned char>& coronalBuf,
-                    std::vector<unsigned char>& sagittalBuf) {
+                    std::vector<unsigned char>& sagittalBuf,
+                    float windowCenter, float windowWidth,
+                    bool enableWindowing) {
     const int width = dicom.width;
     const int height = dicom.length;
     const int depth = dicom.height;
 
     const float* buffer = dicom.buffer.get();
 
-    // --- Axial (Z) ---
-    axialBuf.resize(width * height);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            size_t idx = axialSlice * height * width + y * width + x;
-            axialBuf[y * width + x] = static_cast<unsigned char>(buffer[idx]);
-        }
-    }
-    axialTex = CreateTextureFromSlice(axialBuf.data(), width, height);
+    if (enableWindowing) {
+        float lower = windowCenter - windowWidth / 2.0f;
+        float upper = windowCenter + windowWidth / 2.0f;
+        float range = upper - lower;
+        if (range <= 1e-5) range = 1.0f;
 
-    // --- Coronal (Y) ---
-    coronalBuf.resize(width * depth);
-    for (int z = 0; z < depth; ++z) {
-        for (int x = 0; x < width; ++x) {
-            size_t idx = z * height * width + coronalSlice * width + x;
-            coronalBuf[z * width + x] = static_cast<unsigned char>(buffer[idx]);
-        }
-    }
-    coronalTex = CreateTextureFromSlice(coronalBuf.data(), width, depth);
-
-    // --- Sagittal (X) ---
-    sagittalBuf.resize(height * depth);
-    for (int z = 0; z < depth; ++z) {
+        // --- Axial (Z) ---
+        axialBuf.resize(width * height);
         for (int y = 0; y < height; ++y) {
-            size_t idx = z * height * width + y * width + sagittalSlice;
-            sagittalBuf[z * height + y] = static_cast<unsigned char>(buffer[idx]);
+            for (int x = 0; x < width; ++x) {
+                size_t idx = axialSlice * height * width + y * width + x;
+                float val = buffer[idx];
+                float norm = (val - lower) / range;
+                axialBuf[y * width + x] = static_cast<unsigned char>(std::clamp(norm, 0.0f, 1.0f) * 255);
+            }
+        }
+
+        // --- Coronal (Y) ---
+        coronalBuf.resize(width * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = z * height * width + coronalSlice * width + x;
+                float val = buffer[idx];
+                float norm = (val - lower) / range;
+                coronalBuf[z * width + x] = static_cast<unsigned char>(std::clamp(norm, 0.0f, 1.0f) * 255);
+            }
+        }
+
+        // --- Sagittal (X) ---
+        sagittalBuf.resize(height * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int y = 0; y < height; ++y) {
+                size_t idx = z * height * width + y * width + sagittalSlice;
+                float val = buffer[idx];
+                float norm = (val - lower) / range;
+                sagittalBuf[z * height + y] = static_cast<unsigned char>(std::clamp(norm, 0.0f, 1.0f) * 255);
+            }
+        }
+    } else {
+        float range = dicom.dataMax - dicom.dataMin;
+        if (range <= 1e-5) range = 1.0f;
+        // --- Axial (Z) ---
+        axialBuf.resize(width * height);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = axialSlice * height * width + y * width + x;
+                float norm = (buffer[idx] - dicom.dataMin) / range;
+                axialBuf[y * width + x] = static_cast<unsigned char>(std::clamp(norm * 255.0f, 0.0f, 255.0f));
+            }
+        }
+
+        // --- Coronal (Y) ---
+        coronalBuf.resize(width * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = z * height * width + coronalSlice * width + x;
+                float norm = (buffer[idx] - dicom.dataMin) / range;
+                coronalBuf[z * width + x] = static_cast<unsigned char>(std::clamp(norm * 255.0f, 0.0f, 255.0f));
+            }
+        }
+
+        // --- Sagittal (X) ---
+        sagittalBuf.resize(height * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int y = 0; y < height; ++y) {
+                size_t idx = z * height * width + y * width + sagittalSlice;
+                float norm = (buffer[idx] - dicom.dataMin) / range;
+                sagittalBuf[z * height + y] = static_cast<unsigned char>(std::clamp(norm * 255.0f, 0.0f, 255.0f));
+            }
         }
     }
+
+    axialTex = CreateTextureFromSlice(axialBuf.data(), width, height);
+    coronalTex = CreateTextureFromSlice(coronalBuf.data(), width, depth);
     sagittalTex = CreateTextureFromSlice(sagittalBuf.data(), height, depth);
 }
 
@@ -429,7 +513,9 @@ void Interface::ShowViewerWindow(
     GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
     std::vector<unsigned char>& axialBuf,
     std::vector<unsigned char>& coronalBuf,
-    std::vector<unsigned char>& sagittalBuf
+    std::vector<unsigned char>& sagittalBuf,
+    float& windowCenter, float& windowWidth,
+    bool& enableWindowing
 ){
     const auto& dicom = getDicomReader().loadedData;
     
@@ -458,6 +544,16 @@ void Interface::ShowViewerWindow(
     ImGui::Begin("CT Viewer");
 
     bool changed = false;
+
+    // Windowing controls
+    changed |= ImGui::Checkbox("Enable Windowing", &enableWindowing);
+    if (enableWindowing) {
+        changed |= ImGui::SliderFloat("Window Center", &windowCenter, dicom.dataMin, dicom.dataMax);
+        changed |= ImGui::SliderFloat("Window Width", &windowWidth, 0, dicom.dataMax - dicom.dataMin);
+    }
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
 
     // Axial View
     ImGui::PushID("axial");
@@ -500,7 +596,8 @@ void Interface::ShowViewerWindow(
 
         UpdateTextures(dicom, axialSlice, coronalSlice, sagittalSlice,
                        axialTex, coronalTex, sagittalTex,
-                       axialBuf, coronalBuf, sagittalBuf);
+                       axialBuf, coronalBuf, sagittalBuf,
+                       windowCenter, windowWidth, enableWindowing);
     }
 
     ImGui::End();
@@ -587,9 +684,26 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
             shouldScrollToBottom = true;
             inputBuffer[0] = '\0';
             
-            // Get response asynchronously (you might want to use a thread here)
+            // Get response asynchronously
             const auto& dicom = getDicomReader().loadedData;
-            std::string response = getGeminiResponseWithImage(inputText, dicom, axialSlice);
+            
+            std::stringstream prompt;
+            prompt << "You are a radiology assistant. Analyze the following DICOM slice with the given metadata and answer the user's question.\n\n";
+            prompt << "--- DICOM Metadata ---\n";
+            if (!dicom.patientName.empty()) prompt << "Patient Name: " << dicom.patientName << "\n";
+            if (!dicom.scanDate.empty()) prompt << "Date of Scan: " << dicom.scanDate << "\n";
+            prompt << "Type of Scan: Axial CT Scan\n";
+            if (!dicom.bodyPartExamined.empty()) prompt << "Region Scanned: " << dicom.bodyPartExamined << "\n";
+            if (!dicom.contrastAgent.empty()) prompt << "Type of CT scan: Contrast-enhanced\n";
+            else prompt << "Type of CT scan: Non-contrast\n";
+            if (dicom.sliceThickness > 0) prompt << "Slice thickness: " << dicom.sliceThickness << " mm axial sections\n";
+            if (!dicom.reasonForStudy.empty()) prompt << "Reason for Study: " << dicom.reasonForStudy << "\n";
+            if (!dicom.reasonForRequestedProcedure.empty()) prompt << "Reason for the Requested Procedure: " << dicom.reasonForRequestedProcedure << "\n";
+            if (!dicom.requestedProcedureDescription.empty()) prompt << "Requested Procedure Description: " << dicom.requestedProcedureDescription << "\n";
+            prompt << "\n--- User Question ---\n";
+            prompt << inputText;
+
+            std::string response = getGeminiResponseWithImage(prompt.str(), dicom, axialSlice);
             // Start typing effect for the response
             currentTypingMessage = response;
             typingPosition = 0;
@@ -610,7 +724,24 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
             
             // Get response asynchronously
             const auto& dicom = getDicomReader().loadedData;
-            std::string response = getGeminiResponseWithImage(inputText, dicom, axialSlice);
+            
+            std::stringstream prompt;
+            prompt << "You are a radiology assistant. Analyze the following DICOM slice with the given metadata and answer the user's question.\n\n";
+            prompt << "--- DICOM Metadata ---\n";
+            if (!dicom.patientName.empty()) prompt << "Patient Name: " << dicom.patientName << "\n";
+            if (!dicom.scanDate.empty()) prompt << "Date of Scan: " << dicom.scanDate << "\n";
+            prompt << "Type of Scan: Axial CT Scan\n";
+            if (!dicom.bodyPartExamined.empty()) prompt << "Region Scanned: " << dicom.bodyPartExamined << "\n";
+            if (!dicom.contrastAgent.empty()) prompt << "Type of CT scan: Contrast-enhanced\n";
+            else prompt << "Type of CT scan: Non-contrast\n";
+            if (dicom.sliceThickness > 0) prompt << "Slice thickness: " << dicom.sliceThickness << " mm axial sections\n";
+            if (!dicom.reasonForStudy.empty()) prompt << "Reason for Study: " << dicom.reasonForStudy << "\n";
+            if (!dicom.reasonForRequestedProcedure.empty()) prompt << "Reason for the Requested Procedure: " << dicom.reasonForRequestedProcedure << "\n";
+            if (!dicom.requestedProcedureDescription.empty()) prompt << "Requested Procedure Description: " << dicom.requestedProcedureDescription << "\n";
+            prompt << "\n--- User Question ---\n";
+            prompt << inputText;
+
+            std::string response = getGeminiResponseWithImage(prompt.str(), dicom, axialSlice);
             // Start typing effect for the response
             currentTypingMessage = response;
             typingPosition = 0;
@@ -738,4 +869,4 @@ void Interface::ShowDicomViewer() {
     ImGui::EndChild();
 
     ImGui::End();
-} 
+}

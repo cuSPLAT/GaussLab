@@ -48,7 +48,9 @@ public:
         GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
         std::vector<unsigned char>& axialBuf,
         std::vector<unsigned char>& coronalBuf,
-        std::vector<unsigned char>& sagittalBuf
+        std::vector<unsigned char>& sagittalBuf,
+        float& windowCenter, float& windowWidth,
+        bool& enableWindowing
     );
     void ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog);
     void ShowDicomViewer();
@@ -56,7 +58,7 @@ public:
 
     std::string openFileDialog();
 
-    void createMenuBar();
+    void createMenuBar(bool& dicom_just_loaded);
     void createViewWindow();
     void createDockSpace();
 

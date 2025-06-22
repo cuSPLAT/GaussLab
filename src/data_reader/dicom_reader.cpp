@@ -145,6 +145,36 @@ void DicomReader::readDirectory(const std::string& path) {
         return;
     }
     
+    // Extract windowing info
+    try {
+        auto wc_manip = getDataManipulator(dicomFiles[0], vega::dictionary::WindowCenter);
+        if (wc_manip && wc_manip->size() >= 1) {
+            loadedData.windowCenter = static_cast<float>(wc_manip->at(0));
+        }
+    } catch (...) {}
+    
+    try {
+        auto ww_manip = getDataManipulator(dicomFiles[0], vega::dictionary::WindowWidth);
+        if (ww_manip && ww_manip->size() >= 1) {
+            loadedData.windowWidth = static_cast<float>(ww_manip->at(0));
+        }
+    } catch (...) {}
+
+    // Calculate min and max for sliders and default windowing
+    float minVal = std::numeric_limits<float>::max();
+    float maxVal = std::numeric_limits<float>::lowest();
+    for (int i = 0; i < length; ++i) {
+        if (loadedData.buffer[i] < minVal) minVal = loadedData.buffer[i];
+        if (loadedData.buffer[i] > maxVal) maxVal = loadedData.buffer[i];
+    }
+    loadedData.dataMin = minVal;
+    loadedData.dataMax = maxVal;
+
+    if (loadedData.windowWidth == 0.0f) {
+        loadedData.windowCenter = (maxVal + minVal) / 2.0f;
+        loadedData.windowWidth = maxVal - minVal;
+    }
+
     // Extract pixel spacing (X, Y) and slice thickness (Z)
     try {
         auto spacing_manip = getDataManipulator(dicomFiles[0], vega::dictionary::PixelSpacing);
@@ -170,7 +200,23 @@ void DicomReader::readDirectory(const std::string& path) {
     } catch (...) {
         loadedData.sliceThickness = 1.0f;
     }
-    
+
+    // Extract other metadata
+    auto dataset = dicomFiles[0].data_set();
+    for (const auto& element : *dataset) {
+        if (!element) continue;
+        vega::Tag tag = element->tag();
+
+        if (tag.group() == 0x0010 && tag.element() == 0x0010) loadedData.patientName = element->str();
+        else if (tag.group() == 0x0008 && tag.element() == 0x0022) loadedData.scanDate = element->str();
+        else if (tag.group() == 0x0008 && tag.element() == 0x0020 && loadedData.scanDate.empty()) loadedData.scanDate = element->str();
+        else if (tag.group() == 0x0018 && tag.element() == 0x0015) loadedData.bodyPartExamined = element->str();
+        else if (tag.group() == 0x0018 && tag.element() == 0x0010) loadedData.contrastAgent = element->str();
+        else if (tag.group() == 0x0032 && tag.element() == 0x1030) loadedData.reasonForStudy = element->str();
+        else if (tag.group() == 0x0032 && tag.element() == 0x1060) loadedData.requestedProcedureDescription = element->str();
+        else if (tag.group() == 0x0040 && tag.element() == 0x1002) loadedData.reasonForRequestedProcedure = element->str();
+    }
+
     // maybe later it is better to notify a thread
     loadedData.readable.test_and_set();
 }

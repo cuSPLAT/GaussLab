@@ -30,6 +30,18 @@ public:
         float pixelSpacingX = 1.0f;
         float pixelSpacingY = 1.0f;
         float sliceThickness = 1.0f;
+        float windowCenter = 0.0f;
+        float windowWidth = 0.0f;
+        float dataMin = 0.0f;
+        float dataMax = 0.0f;
+
+        std::string patientName;
+        std::string scanDate;
+        std::string bodyPartExamined;
+        std::string contrastAgent;
+        std::string reasonForStudy;
+        std::string requestedProcedureDescription;
+        std::string reasonForRequestedProcedure;
 
         std::atomic_flag readable {};
     };
