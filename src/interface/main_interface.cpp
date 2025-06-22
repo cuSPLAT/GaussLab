@@ -31,6 +31,18 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui.h>
 
+#include "request.hpp"
+#include "dicom_viewer.h"
+
+void UpdateTextures(const DicomReader::DicomData& dicom,
+                    int axialSlice, int coronalSlice, int sagittalSlice,
+                    GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
+                    std::vector<unsigned char>& axialBuf,
+                    std::vector<unsigned char>& coronalBuf,
+                    std::vector<unsigned char>& sagittalBuf,
+                    float windowCenter, float windowWidth,
+                    bool enableWindowing);
+
 
 Interface::Interface() = default;
 
@@ -78,8 +90,8 @@ bool Interface::setupWindow() {
 
 void Interface::setupStyle() {
     ImGuiStyle& style = ImGui::GetStyle();
-    style.FrameRounding  = 0.f;
-    style.WindowRounding = 0.f;
+    style.FrameRounding = 5.f;
+    style.WindowRounding = 5.f;
 }
 
 bool Interface::initOpengl() {
@@ -99,9 +111,9 @@ void Interface::setupImgui() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    //const char* font_path = "../assets/JetBrainsMono-Regular.ttf";
+    const char* font_path = "../assets/JetBrainsMono-Regular.ttf";
     //float font_size = 18.0f;
-    //io.Fonts->AddFontFromFileTTF(font_path, uiFontSize);
+    io.Fonts->AddFontFromFileTTF(font_path, uiFontSize);
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 460");
@@ -160,6 +172,14 @@ void Interface::startMainLoop() {
 
     glm::vec3 centroid {0}; // a temporary
 
+    static int axialSlice = 0, coronalSlice = 0, sagittalSlice = 0;
+    static GLuint axialTex = 0, coronalTex = 0, sagittalTex = 0;
+    static std::vector<unsigned char> axialBuf, coronalBuf, sagittalBuf;
+    static float windowCenter = 0.0f, windowWidth = 0.0f;
+    static bool dicom_just_loaded = false;
+    static bool enableWindowing = true;
+    std::vector<ChatMessage> chatLog;
+
     // The main initial viewport
     Viewport::newViewport(width, height);
 
@@ -168,6 +188,26 @@ void Interface::startMainLoop() {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        if (dicom_just_loaded) {
+            const auto& dicom = dcmReader.loadedData;
+            windowCenter = dicom.windowCenter;
+            windowWidth = dicom.windowWidth;
+            axialSlice = dicom.height / 2;
+            coronalSlice = dicom.length / 2;
+            sagittalSlice = dicom.width / 2;
+            
+            if (axialTex) glDeleteTextures(1, &axialTex);
+            if (coronalTex) glDeleteTextures(1, &coronalTex);
+            if (sagittalTex) glDeleteTextures(1, &sagittalTex);
+            axialTex = coronalTex = sagittalTex = 0;
+
+            UpdateTextures(dicom, axialSlice, coronalSlice, sagittalSlice,
+                           axialTex, coronalTex, sagittalTex,
+                           axialBuf, coronalBuf, sagittalBuf,
+                           windowCenter, windowWidth, enableWindowing);
+            dicom_just_loaded = false;
+        }
 
         //ImGui::ShowMetricsWindow();
 
@@ -180,13 +220,20 @@ void Interface::startMainLoop() {
         Viewport::drawViewports_ImGui(renderer);
         Viewport& selectedViewport = Viewport::viewports[::globalState.selectedViewport];
 
+        // ------------------------------ DICOM Viewer -----------------
+        ShowViewerWindow(
+            axialSlice, coronalSlice, sagittalSlice,
+            axialTex, coronalTex, sagittalTex,
+            axialBuf,
+            coronalBuf,
+            sagittalBuf,
+            windowCenter, windowWidth, enableWindowing);
+        ShowChatWindow(axialSlice, chatLog);
+        // only reload dicom tag entries if the file changes
+        ShowDicomViewer();
+        // ---------------------------------------------------------------
+
         if (ImGui::Begin("Debug")) {
-            ImGui::SeparatorText("Font Size");
-            ImGui::PushItemWidth(-1.0f);
-            ImGui::SliderFloat("##FontSize", &uiFontSize, 12.0f, 26.0f, "%.0f px");
-            ImGui::GetIO().FontGlobalScale = uiFontSize / 18.0f;
-            
-            ImGui::Dummy(ImVec2(0.f, 10.f));
             ImGui::SeparatorText("Primitive Count");
             ImGui::PushItemWidth(-1.0f);
             ImGui::InputScalar(
@@ -373,8 +420,10 @@ void Interface::startMainLoop() {
 
                 renderer->constructMeshScene(MarchingCubes::OutputVertices);
 
-                for (int i = 0; i < Viewport::n_viewports; i++)
-                    Viewport::viewports[i].view_camera->lookAt(centroid);
+                for (int i = 0; i < Viewport::n_viewports; i++) {
+                    if (Viewport::viewports[i].mesh)
+                        Viewport::viewports[i].view_camera->lookAt(centroid);
+                }
             }
             ImGui::Text("Last run: %d ms", mc_duration);
         }
@@ -484,3 +533,475 @@ void Interface::createDockSpace() {
     }
     ImGui::End();
 }
+
+// --- Utility: Create OpenGL texture from 2D slice ---
+GLuint CreateTextureFromSlice(const unsigned char* data, int width, int height) {
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Swizzle red to all channels for grayscale display
+    GLint swizzleMask[] = {GL_RED, GL_RED, GL_RED, GL_ONE};
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
+
+    return tex;
+}
+
+// --- Update textures only when needed ---
+void UpdateTextures(const DicomReader::DicomData& dicom,
+                    int axialSlice, int coronalSlice, int sagittalSlice,
+                    GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
+                    std::vector<unsigned char>& axialBuf,
+                    std::vector<unsigned char>& coronalBuf,
+                    std::vector<unsigned char>& sagittalBuf,
+                    float windowCenter, float windowWidth,
+                    bool enableWindowing) {
+    const int width = dicom.width;
+    const int height = dicom.length;
+    const int depth = dicom.height;
+
+    const float* buffer = dicom.buffer.get();
+
+    if (enableWindowing) {
+        float lower = windowCenter - windowWidth / 2.0f;
+        float upper = windowCenter + windowWidth / 2.0f;
+        float range = upper - lower;
+        if (range <= 1e-5) range = 1.0f;
+
+        // --- Axial (Z) ---
+        axialBuf.resize(width * height);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = axialSlice * height * width + y * width + x;
+                float val = buffer[idx];
+                float norm = (val - lower) / range;
+                axialBuf[y * width + x] = static_cast<unsigned char>(std::clamp(norm, 0.0f, 1.0f) * 255);
+            }
+        }
+
+        // --- Coronal (Y) ---
+        coronalBuf.resize(width * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = z * height * width + coronalSlice * width + x;
+                float val = buffer[idx];
+                float norm = (val - lower) / range;
+                coronalBuf[z * width + x] = static_cast<unsigned char>(std::clamp(norm, 0.0f, 1.0f) * 255);
+            }
+        }
+
+        // --- Sagittal (X) ---
+        sagittalBuf.resize(height * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int y = 0; y < height; ++y) {
+                size_t idx = z * height * width + y * width + sagittalSlice;
+                float val = buffer[idx];
+                float norm = (val - lower) / range;
+                sagittalBuf[z * height + y] = static_cast<unsigned char>(std::clamp(norm, 0.0f, 1.0f) * 255);
+            }
+        }
+    } else {
+        float range = dicom.dataMax - dicom.dataMin;
+        if (range <= 1e-5) range = 1.0f;
+        // --- Axial (Z) ---
+        axialBuf.resize(width * height);
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = axialSlice * height * width + y * width + x;
+                float norm = (buffer[idx] - dicom.dataMin) / range;
+                axialBuf[y * width + x] = static_cast<unsigned char>(std::clamp(norm * 255.0f, 0.0f, 255.0f));
+            }
+        }
+
+        // --- Coronal (Y) ---
+        coronalBuf.resize(width * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int x = 0; x < width; ++x) {
+                size_t idx = z * height * width + coronalSlice * width + x;
+                float norm = (buffer[idx] - dicom.dataMin) / range;
+                coronalBuf[z * width + x] = static_cast<unsigned char>(std::clamp(norm * 255.0f, 0.0f, 255.0f));
+            }
+        }
+
+        // --- Sagittal (X) ---
+        sagittalBuf.resize(height * depth);
+        for (int z = 0; z < depth; ++z) {
+            for (int y = 0; y < height; ++y) {
+                size_t idx = z * height * width + y * width + sagittalSlice;
+                float norm = (buffer[idx] - dicom.dataMin) / range;
+                sagittalBuf[z * height + y] = static_cast<unsigned char>(std::clamp(norm * 255.0f, 0.0f, 255.0f));
+            }
+        }
+    }
+
+    axialTex = CreateTextureFromSlice(axialBuf.data(), width, height);
+    coronalTex = CreateTextureFromSlice(coronalBuf.data(), width, depth);
+    sagittalTex = CreateTextureFromSlice(sagittalBuf.data(), height, depth);
+}
+
+void Interface::ShowViewerWindow(
+    int& axialSlice, int& coronalSlice, int& sagittalSlice,
+    GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
+    std::vector<unsigned char>& axialBuf,
+    std::vector<unsigned char>& coronalBuf,
+    std::vector<unsigned char>& sagittalBuf,
+    float& windowCenter, float& windowWidth,
+    bool& enableWindowing
+){
+    const auto& dicom = getDicomReader().loadedData;
+    
+    // Check if DICOM data is valid before accessing it
+    if (!dicom.buffer || dicom.width <= 0 || dicom.length <= 0 || dicom.height <= 0) {
+        ImGui::Begin("CT Viewer");
+        ImGui::Text("Please load a DICOM directory first");
+        ImGui::End();
+        return;
+    }
+    
+    const int width = dicom.width;
+    const int height = dicom.length;
+    const int depth = dicom.height;
+
+    // Clamp slice indices to valid ranges
+    axialSlice = std::clamp(axialSlice, 0, depth - 1);
+    coronalSlice = std::clamp(coronalSlice, 0, height - 1);
+    sagittalSlice = std::clamp(sagittalSlice, 0, width - 1);
+
+    float pixelSpacingX = dicom.pixelSpacingX;
+    float pixelSpacingY = dicom.pixelSpacingY;
+    float pixelSpacingZ = dicom.sliceThickness;
+
+    ImGui::Begin("CT Viewer");
+
+    bool changed = false;
+
+    // Windowing controls
+    changed |= ImGui::Checkbox("Enable Windowing", &enableWindowing);
+    if (enableWindowing) {
+        changed |= ImGui::SliderFloat("Window Center", &windowCenter, dicom.dataMin, dicom.dataMax);
+        changed |= ImGui::SliderFloat("Window Width", &windowWidth, 0, dicom.dataMax - dicom.dataMin);
+    }
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Axial View
+    ImGui::PushID("axial");
+    ImGui::Text("Axial");
+    changed |= ImGui::SliderInt("Axial (Z)", &axialSlice, 0, depth - 1);
+    float axialWidth = std::min(ImGui::GetContentRegionAvail().x, 512.0f);
+    float axialHeight = axialWidth * (height * pixelSpacingY) / (width * pixelSpacingX);
+    ImGui::Image((ImTextureID)(intptr_t)axialTex, ImVec2(axialWidth, axialHeight));
+    ImGui::PopID();
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Coronal View
+    ImGui::PushID("coronal");
+    ImGui::Text("Coronal");
+    changed |= ImGui::SliderInt("Coronal (Y)", &coronalSlice, 0, height - 1);
+    float coronalWidth = std::min(ImGui::GetContentRegionAvail().x, 512.0f);
+    float coronalHeight = coronalWidth * (depth * pixelSpacingZ) / (width * pixelSpacingX);
+    ImGui::Image((ImTextureID)(intptr_t)coronalTex, ImVec2(coronalWidth, coronalHeight));
+    ImGui::PopID();
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Sagittal View
+    ImGui::PushID("sagittal");
+    ImGui::Text("Sagittal");
+    changed |= ImGui::SliderInt("Sagittal (X)", &sagittalSlice, 0, width - 1);
+    float sagittalWidth = std::min(ImGui::GetContentRegionAvail().x, 512.0f);
+    float sagittalHeight = sagittalWidth * (depth * pixelSpacingZ) / (height * pixelSpacingY);
+    ImGui::Image((ImTextureID)(intptr_t)sagittalTex, ImVec2(sagittalWidth, sagittalHeight));
+    ImGui::PopID();
+
+    // Update textures if any change (slider or scroll)
+    if (changed) {
+        if (axialTex) glDeleteTextures(1, &axialTex);
+        if (coronalTex) glDeleteTextures(1, &coronalTex);
+        if (sagittalTex) glDeleteTextures(1, &sagittalTex);
+
+        UpdateTextures(dicom, axialSlice, coronalSlice, sagittalSlice,
+                       axialTex, coronalTex, sagittalTex,
+                       axialBuf, coronalBuf, sagittalBuf,
+                       windowCenter, windowWidth, enableWindowing);
+    }
+
+    ImGui::End();
+}
+
+
+
+
+
+// ImGui chat interface
+// Include ImGuiFileDialog
+
+void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog) {
+    static char inputBuffer[1024] = "";  // User input for prompt
+    static bool shouldScrollToBottom = false;
+    static int typingPosition = 0;
+    static float typingTimer = 0.0f;
+    static std::string currentTypingMessage = "";
+
+    ImGui::Begin("GaussLab Assistant", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    float inputHeight = ImGui::GetFrameHeightWithSpacing() * 2; // or a small constant if you want
+    float chatLogHeight = ImGui::GetContentRegionAvail().y - inputHeight;
+    ImGui::BeginChild("ChatLog", ImVec2(0, chatLogHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
+    
+    // Add some padding at the top
+    ImGui::Spacing();
+    
+    for (size_t i = 0; i < chatLog.size(); ++i) {
+        const auto& message = chatLog[i];
+        // Calculate text width for wrapping
+        float wrapWidth = ImGui::GetWindowWidth() - 20.0f;  // Leave some margin
+        
+        // Style for user messages
+        if (!message.isGemini) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));  // Light gray for user
+            ImGui::TextWrapped("%s", message.text.c_str());
+            ImGui::PopStyleColor();
+        }
+        // Style for Gemini messages
+        else {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.6f, 1.0f, 1.0f));  // Light blue for Gemini
+            if (i == chatLog.size() - 1 && !currentTypingMessage.empty()) {
+                std::string displayText = "GaussLab: " + currentTypingMessage.substr(0, typingPosition);
+                ImGui::TextWrapped("%s", displayText.c_str());
+            } else {
+                ImGui::TextWrapped("%s", message.text.c_str());
+            }
+            ImGui::PopStyleColor();
+        }
+        
+        // Add spacing between messages
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+    }
+
+    // Auto-scroll to bottom when new messages are added
+    if (shouldScrollToBottom) {
+        ImGui::SetScrollHereY(1.0f);
+        shouldScrollToBottom = false;
+    }
+
+    ImGui::EndChild();
+
+    // Input Area
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Create a horizontal layout for input and button
+    float buttonWidth = 80.0f;
+    float padding = 10.0f;
+    float inputWidth = ImGui::GetWindowWidth() - buttonWidth - padding * 2;
+
+    ImGui::PushItemWidth(inputWidth);
+    if (ImGui::InputText("##Input", inputBuffer, IM_ARRAYSIZE(inputBuffer), 
+                        ImGuiInputTextFlags_EnterReturnsTrue)) {
+        // Handle Enter key press
+        std::string inputText(inputBuffer);
+        if (!inputText.empty()) {
+            // Display user message immediately
+            chatLog.push_back({"You: " + inputText, false});
+            shouldScrollToBottom = true;
+            inputBuffer[0] = '\0';
+            
+            // Get response asynchronously
+            const auto& dicom = getDicomReader().loadedData;
+            
+            std::stringstream prompt;
+            prompt << "You are a radiology assistant. Analyze the following DICOM slice with the given metadata and answer the user's question.\n\n";
+            prompt << "--- DICOM Metadata ---\n";
+            if (!dicom.patientName.empty()) prompt << "Patient Name: " << dicom.patientName << "\n";
+            if (!dicom.scanDate.empty()) prompt << "Date of Scan: " << dicom.scanDate << "\n";
+            prompt << "Type of Scan: Axial CT Scan\n";
+            if (!dicom.bodyPartExamined.empty()) prompt << "Region Scanned: " << dicom.bodyPartExamined << "\n";
+            if (!dicom.contrastAgent.empty()) prompt << "Type of CT scan: Contrast-enhanced\n";
+            else prompt << "Type of CT scan: Non-contrast\n";
+            if (dicom.sliceThickness > 0) prompt << "Slice thickness: " << dicom.sliceThickness << " mm axial sections\n";
+            if (!dicom.reasonForStudy.empty()) prompt << "Reason for Study: " << dicom.reasonForStudy << "\n";
+            if (!dicom.reasonForRequestedProcedure.empty()) prompt << "Reason for the Requested Procedure: " << dicom.reasonForRequestedProcedure << "\n";
+            if (!dicom.requestedProcedureDescription.empty()) prompt << "Requested Procedure Description: " << dicom.requestedProcedureDescription << "\n";
+            prompt << "\n--- User Question ---\n";
+            prompt << inputText;
+
+            std::string response = getGeminiResponseWithImage(prompt.str(), dicom, axialSlice);
+            // Start typing effect for the response
+            currentTypingMessage = response;
+            typingPosition = 0;
+            typingTimer = 0.0f;
+            chatLog.push_back({"Gemini: " + response, true});
+        }
+    }
+    ImGui::PopItemWidth();
+
+    ImGui::SameLine();
+    if (ImGui::Button("Send", ImVec2(buttonWidth, 0))) {
+        std::string inputText(inputBuffer);
+        if (!inputText.empty()) {
+            // Display user message immediately
+            chatLog.push_back({"You: " + inputText, false});
+            shouldScrollToBottom = true;
+            inputBuffer[0] = '\0';
+            
+            // Get response asynchronously
+            const auto& dicom = getDicomReader().loadedData;
+            
+            std::stringstream prompt;
+            prompt << "You are a radiology assistant. Analyze the following DICOM slice with the given metadata and answer the user's question.\n\n";
+            prompt << "--- DICOM Metadata ---\n";
+            if (!dicom.patientName.empty()) prompt << "Patient Name: " << dicom.patientName << "\n";
+            if (!dicom.scanDate.empty()) prompt << "Date of Scan: " << dicom.scanDate << "\n";
+            prompt << "Type of Scan: Axial CT Scan\n";
+            if (!dicom.bodyPartExamined.empty()) prompt << "Region Scanned: " << dicom.bodyPartExamined << "\n";
+            if (!dicom.contrastAgent.empty()) prompt << "Type of CT scan: Contrast-enhanced\n";
+            else prompt << "Type of CT scan: Non-contrast\n";
+            if (dicom.sliceThickness > 0) prompt << "Slice thickness: " << dicom.sliceThickness << " mm axial sections\n";
+            if (!dicom.reasonForStudy.empty()) prompt << "Reason for Study: " << dicom.reasonForStudy << "\n";
+            if (!dicom.reasonForRequestedProcedure.empty()) prompt << "Reason for the Requested Procedure: " << dicom.reasonForRequestedProcedure << "\n";
+            if (!dicom.requestedProcedureDescription.empty()) prompt << "Requested Procedure Description: " << dicom.requestedProcedureDescription << "\n";
+            prompt << "\n--- User Question ---\n";
+            prompt << inputText;
+
+            std::string response = getGeminiResponseWithImage(prompt.str(), dicom, axialSlice);
+            // Start typing effect for the response
+            currentTypingMessage = response;
+            typingPosition = 0;
+            typingTimer = 0.0f;
+            chatLog.push_back({"Gemini: " + response, true});
+        }
+        else {
+            chatLog.push_back({"Gemini: Please enter a prompt.", true});
+            shouldScrollToBottom = true;
+        }
+    }
+
+    // Update typing effect
+    if (!currentTypingMessage.empty() && typingPosition < currentTypingMessage.length()) {
+        typingTimer += ImGui::GetIO().DeltaTime;
+        if (typingTimer >= 0.02f) { // Faster typing (0.02 = 50 characters per second)
+            typingPosition++;
+            typingTimer = 0.0f;
+            shouldScrollToBottom = true;
+        }
+    }
+
+    ImGui::End();
+}
+
+
+
+void Interface::ShowDicomViewer() {
+    // Only reload DICOM tag entries if the file changes
+    static std::string lastDicomPath="";
+    static std::vector<DicomEntry> entries;
+    const auto& dicomFilePaths = this->dcmReader.getDicomFilePaths();
+
+    if (dicomFilePaths !="") {
+        
+        if (dicomFilePaths != lastDicomPath) {
+            entries = loadDicomTags(dicomFilePaths);
+            lastDicomPath = dicomFilePaths;
+        }
+    }
+
+    static char groupInput[5] = "";
+    static char elementInput[5] = "";
+    static std::string searchResult = "";
+    static bool shouldScrollTagList = false;
+    static bool shouldScrollSearchResult = false;
+
+    ImGui::Begin("DICOM Viewer", nullptr, ImGuiWindowFlags_NoCollapse);
+
+    // --- Search Tag Input Fields & Button ---
+    ImGui::Text("Search Tag:");
+    float inputFieldWidth = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) / 2;
+    ImGui::SetNextItemWidth(inputFieldWidth);
+    ImGui::InputTextWithHint("##Group", "Group (hex)", groupInput, sizeof(groupInput), ImGuiInputTextFlags_CharsHexadecimal);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(inputFieldWidth);
+    ImGui::InputTextWithHint("##Element", "Element (hex)", elementInput, sizeof(elementInput), ImGuiInputTextFlags_CharsHexadecimal);
+
+    // Search Button - always visible below inputs, takes full width
+    if (ImGui::Button("Search", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
+        uint16_t group = 0, element = 0;
+        std::stringstream ss1, ss2;
+        ss1 << std::hex << groupInput;
+        ss1 >> group;
+        ss2 << std::hex << elementInput;
+        ss2 >> element;
+
+        bool found = false;
+        for (const auto& entry : entries) {
+            if (entry.tag.group() == group && entry.tag.element() == element) {
+                std::stringstream tagStr;
+                tagStr << std::hex << std::uppercase << std::setfill('0')
+                       << "(" << std::setw(4) << group << "," << std::setw(4) << element << ")";
+                searchResult = tagStr.str() + " | " + entry.tagName + ": " + entry.value;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            std::stringstream tagStr;
+            tagStr << std::hex << std::uppercase << std::setfill('0')
+                   << "(" << std::setw(4) << group << "," << std::setw(4) << element << ")";
+            searchResult = tagStr.str() + ": Not Found";
+        }
+        shouldScrollSearchResult = true;
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // --- Search Result Area (fixed height, always visible) ---
+    ImGui::Text("Search Result:");
+    float searchResultFixedH = ImGui::GetTextLineHeightWithSpacing() * 2 + ImGui::GetStyle().ItemSpacing.y * 2;
+    ImGui::BeginChild("searchResultChild", ImVec2(0, searchResultFixedH), true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::TextWrapped("%s", searchResult.c_str());
+    if (shouldScrollSearchResult) {
+        ImGui::SetScrollHereY(1.0f);
+        shouldScrollSearchResult = false;
+    }
+    ImGui::EndChild();
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // --- Tag List Area (takes remaining available space) ---
+    ImGui::Text("Tags:");
+    // ImVec2(0,0) makes this child take up the rest of the available height in the parent window.
+    ImGui::BeginChild("tagListChild", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::Spacing();
+    for (size_t i = 0; i < std::min<size_t>(20, entries.size()); ++i) {
+        const auto& entry = entries[i];
+        ImGui::TextWrapped("(%04X,%04X) | %-30s: %s",
+            entry.tag.group(), entry.tag.element(),
+            entry.tagName.c_str(), entry.value.c_str());
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+    }
+    if (shouldScrollTagList) {
+        ImGui::SetScrollHereY(1.0f);
+        shouldScrollTagList = false;
+    }
+    ImGui::EndChild();
+
+    ImGui::End();
+}
+
+

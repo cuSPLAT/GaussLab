@@ -193,7 +193,8 @@ void Renderer::constructSplatScene(Scene* scene) {
 
 void Renderer::constructSplatSceneFromGPU(GPUScene& scene) {
     for (int i = 0; i < Viewport::n_viewports; i++) {
-        Viewport::viewports[i].view_camera->lookAt(scene.centroid);
+        if (!Viewport::viewports[i].mesh)
+            Viewport::viewports[i].view_camera->lookAt(scene.centroid);
     }
     newScene = true;
     //NOTE: GPUScene cannot be used after this, all buffers are cleared to save memory

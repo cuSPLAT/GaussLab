@@ -13,6 +13,7 @@
 
 class DicomReader {
     std::vector<vega::dicom::File> dicomFiles;
+    std::string dicomFilePath="";
 
     std::vector<std::thread> threads;
 
@@ -20,10 +21,28 @@ public:
     std::atomic<std::uint64_t> loadingProgress {0};
     // initialized with a large number so the loading bar can work instantly
     std::atomic<std::uint64_t> totalSize {10000000};
+    const std::vector<vega::dicom::File>& getDicomFiles() const { return dicomFiles; }
+    std::string getDicomFilePaths() const { 
+        return dicomFilePath; }
 
     struct DicomData {
         std::unique_ptr<float[]> buffer;
         int width, length, height;
+        float pixelSpacingX = 1.0f;
+        float pixelSpacingY = 1.0f;
+        float sliceThickness = 1.0f;
+        float windowCenter = 0.0f;
+        float windowWidth = 0.0f;
+        float dataMin = 0.0f;
+        float dataMax = 0.0f;
+
+        std::string patientName;
+        std::string scanDate;
+        std::string bodyPartExamined;
+        std::string contrastAgent;
+        std::string reasonForStudy;
+        std::string requestedProcedureDescription;
+        std::string reasonForRequestedProcedure;
 
         std::atomic_flag readable {};
     };
