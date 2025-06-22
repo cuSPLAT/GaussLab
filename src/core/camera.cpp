@@ -67,6 +67,10 @@ void Camera::lookAt(const glm::vec3& centroid) {
     view = glm::lookAt(cameraPos, cameraPos + cameraTarget, cameraUp);
 }
 
+void Camera::reset() {
+    lookAt(sceneCentroid);
+}
+
 void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
     if (!(::globalState.in_view_mode))
         return;

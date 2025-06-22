@@ -35,6 +35,7 @@ public:
     void registerModelView(GLuint shaderId);
     void handleInput(GLFWwindow* window);
     void uploadIntrinsics(GLuint program, int instanceCounts);
+    void reset();
 
     void updateViewport(float width, float height, int shader);
 

@@ -17,7 +17,7 @@ struct Viewport {
     static void newViewport(int width, int height);
 
     static void renderOnViewport(int i);
-    static void lookAtScene_all(const glm::vec3& centroid);
+    static void lookAtScene_all(const glm::vec3& centroid, bool mesh);
 
     const char* viewport_id;
     std::unique_ptr<Camera> view_camera;

@@ -89,6 +89,7 @@ class Renderer {
 public:
     unsigned int verticesCount = 0;
     unsigned int gaussiansCount = 0;
+    int currentGaussianProgram = -1;
 
 public:
     Renderer(int width, int height);
@@ -97,7 +98,7 @@ public:
     void generateInitialBuffers();
     // I will do a getter later
     GLuint shaderProgram, veryRealComputeProgram;
-    GLuint gaussRenProgram;
+    GLuint gaussRenProgram, gaussianMedProgram;
 
     void constructMeshScene(std::vector<Vertex>& vertices);
     void constructSplatScene(Scene* scene);

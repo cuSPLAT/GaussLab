@@ -203,9 +203,8 @@ void Interface::startMainLoop() {
                     ImGui::PushItemWidth(-1.0f);
                     ImGui::InputFloat3("##Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
 
-                    if (ImGui::Button("Reset")) {
-                        Viewport::lookAtScene_all(centroid);
-                    }
+                    if (ImGui::Button("Reset"))
+                        Viewport::viewports[::globalState.selectedViewport].view_camera->reset();
 
                     // Point cloud or Gaussian splatting view mode selection
                     ImGui::Dummy(ImVec2(0.f, 10.f));
@@ -309,7 +308,6 @@ void Interface::startMainLoop() {
                         else
                         {
                             torch::Device device = torch::kCUDA;
-                            std::cout << device << "\n";
                             InputData inputData = inputDataFromDicom(
                                 dicomDirectoryPath, windowWidth, windowCenter,
                                 huThreshold, 1, faceCameraIndex, dropout_p
@@ -323,6 +321,7 @@ void Interface::startMainLoop() {
                                 .centroid = {model.centroid_f[0], model.centroid_f[1], model.centroid_f[2]}
                             };
                             renderer->constructSplatSceneFromGPU(reconstructedScene);
+                            Viewport::lookAtScene_all(reconstructedScene.centroid, false);
                         }
                     }
 
@@ -372,9 +371,7 @@ void Interface::startMainLoop() {
                 mc_duration = duration.count();
 
                 renderer->constructMeshScene(MarchingCubes::OutputVertices);
-
-                for (int i = 0; i < Viewport::n_viewports; i++)
-                    Viewport::viewports[i].view_camera->lookAt(centroid);
+                Viewport::lookAtScene_all(centroid, true);
             }
             ImGui::Text("Last run: %d ms", mc_duration);
         }
@@ -405,6 +402,7 @@ void Interface::createMenuBar() {
                 if (path.has_value()) {
                     Scene* pcd = PLYLoader::loadPLy(std::move(path.value()));
                     renderer->constructSplatScene(pcd);
+                    Viewport::lookAtScene_all(pcd->centroid, false);
                     delete pcd;
                 }
             }

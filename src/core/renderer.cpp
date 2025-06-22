@@ -76,6 +76,10 @@ void Renderer::generateInitialBuffers() {
     glShaderSource(GaussianVertexShader, 1, &Shaders::gaussianVertexShader, nullptr);
     glCompileShader(GaussianVertexShader);
 
+    GLuint GaussianMedicalShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(GaussianMedicalShader, 1, &Shaders::gaussianMedicalShader, nullptr);
+    glCompileShader(GaussianMedicalShader);
+
     GLuint GaussianFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(GaussianFragmentShader, 1, &Shaders::gaussianFragmentShader, nullptr);
     glCompileShader(GaussianFragmentShader);
@@ -94,6 +98,11 @@ void Renderer::generateInitialBuffers() {
     glAttachShader(gaussRenProgram, GaussianVertexShader);
     glAttachShader(gaussRenProgram, GaussianFragmentShader);
     glLinkProgram(gaussRenProgram);
+
+    gaussianMedProgram = glCreateProgram();
+    glAttachShader(gaussianMedProgram, GaussianMedicalShader);
+    glAttachShader(gaussianMedProgram, GaussianFragmentShader);
+    glLinkProgram(gaussianMedProgram);
 
     ::globalState.vertexProgram = shaderProgram;
     ::globalState.gaussianProgram = gaussRenProgram;
@@ -153,20 +162,9 @@ void Renderer::constructMeshScene(std::vector<Vertex>& vertices) {
 }
 
 void Renderer::constructSplatScene(Scene* scene) {
-    for (int i = 0; i < Viewport::n_viewports; i++) {
-        if (!Viewport::viewports[i].mesh)
-            Viewport::viewports[i].view_camera->lookAt(scene->centroid);
-    }
     gaussiansCount = scene->verticesCount;
     newScene = true;
     
-    size_t stride = 14 * sizeof(float);
-    size_t offset = 0;
-    if (!scene->interleavedBuffer) {
-        stride = 3 * sizeof(float);
-        offset = scene->verticesCount * 3 * sizeof(float);
-    }
-
     //this could be optimized to be done in a compute shader or a cuda kernel
     GLuint gaussianMeans;
     glGenBuffers(1, &gaussianMeans);
@@ -177,7 +175,7 @@ void Renderer::constructSplatScene(Scene* scene) {
         scene->sceneDataBuffer.get(), GL_STATIC_DRAW
     );
     
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(3);
     //TODO: When you are sure everything works, don't use VBOs for Gaussian data anymore
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, gaussianDataBuffer);
@@ -189,12 +187,10 @@ void Renderer::constructSplatScene(Scene* scene) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     gaussianSceneCreated = true;
+    currentGaussianProgram = gaussRenProgram;
 }
 
 void Renderer::constructSplatSceneFromGPU(GPUScene& scene) {
-    for (int i = 0; i < Viewport::n_viewports; i++) {
-        Viewport::viewports[i].view_camera->lookAt(scene.centroid);
-    }
     newScene = true;
     //NOTE: GPUScene cannot be used after this, all buffers are cleared to save memory
     gaussiansCount = scene.means.size(0);
@@ -265,17 +261,11 @@ void Renderer::constructSplatSceneFromGPU(GPUScene& scene) {
     glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(3);
 
-    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(2);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
-
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
     gaussianSceneCreated = true;
+    currentGaussianProgram = gaussianMedProgram;
 }
 
 void Renderer::processGaussianSplats(int i) {
@@ -312,6 +302,7 @@ void Renderer::processGaussianSplats(int i) {
 }
 
 void Renderer::render(GLFWwindow* window) {
+    std::cout << gaussianMedProgram << " " << currentGaussianProgram << std::endl;
     Viewport::viewports[::globalState.selectedViewport].view_camera->handleInput(window);
 
     //TODO: use UBOs instead of normal uniforms
@@ -334,9 +325,9 @@ void Renderer::render(GLFWwindow* window) {
             glDisable(GL_DEPTH_TEST);
             processGaussianSplats(i);
 
-            glUseProgram(gaussRenProgram);
-            Viewport::viewports[i].view_camera->registerModelView(gaussRenProgram);
-            Viewport::viewports[i].view_camera->uploadIntrinsics(gaussRenProgram, gaussiansCount);
+            glUseProgram(currentGaussianProgram);
+            Viewport::viewports[i].view_camera->registerModelView(currentGaussianProgram);
+            Viewport::viewports[i].view_camera->uploadIntrinsics(currentGaussianProgram, gaussiansCount);
             glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0, gaussiansCount);
         }
         Viewport::viewports[i].view_camera->updateView();

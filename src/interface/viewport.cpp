@@ -76,16 +76,26 @@ void Viewport::newViewport(int width, int height) {
     viewports[n_viewports] = Viewport(width, height);
     // a cheeky way to do it
     if (n_viewports > 0) {
-        viewports[n_viewports].view_camera->lookAt(
-            viewports[n_viewports - 1].view_camera->sceneCentroid
-        );
+        for (int i = n_viewports - 1; i >= 0; --i) {
+            if (viewports[i].mesh)
+                viewports[n_viewports].view_camera->lookAt(
+                    viewports[i].view_camera->sceneCentroid
+                );
+        }
     }
     n_viewports++;
 }
 
-void Viewport::lookAtScene_all(const glm::vec3& centroid) { 
-    for (int i = 0; i < Viewport::n_viewports; i++)
-        viewports[i].view_camera->lookAt(centroid);
+void Viewport::lookAtScene_all(const glm::vec3& centroid, bool mesh) { 
+    if (n_viewports == 1) {
+        viewports[0].view_camera->lookAt(centroid);
+        return;
+    }
+
+    for (int i = 0; i < Viewport::n_viewports; i++) {
+        if (viewports[i].mesh == mesh)
+            viewports[i].view_camera->lookAt(centroid);
+    }
 }
 
 // TODO: remove the renderer pointer. it is literally useless here
