@@ -522,7 +522,6 @@ void Interface::ShowViewerWindow(
     // Check if DICOM data is valid before accessing it
     if (!dicom.buffer || dicom.width <= 0 || dicom.length <= 0 || dicom.height <= 0) {
         ImGui::Begin("CT Viewer");
-        ImGui::Text("No valid DICOM data loaded");
         ImGui::Text("Please load a DICOM directory first");
         ImGui::End();
         return;
