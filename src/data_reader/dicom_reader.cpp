@@ -51,10 +51,16 @@ static bool zAxisComparison(vega::dicom::File &f1, vega::dicom::File &f2) {
 
 void DicomReader::readDirectory(const std::string& path) {
     dicomFiles.clear();
-
     for (const auto &entry: fs::directory_iterator(path)) {
+        // Only process files, not directories
         if (entry.is_regular_file()) {
-            dicomFiles.emplace_back(entry.path().string());
+            try {
+                dicomFiles.emplace_back(entry.path().string());
+                if (dicomFilePath.empty()) {
+                    dicomFilePath = entry.path().string();
+                }
+            } catch (const std::exception& e) {
+            }
         }
     }
     
