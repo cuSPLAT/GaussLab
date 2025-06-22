@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
-set(CMAKE_CUDA_ARCHITECTURES "86" CACHE STRING "CUDA architectures to build for" FORCE)
+set(CMAKE_CUDA_ARCHITECTURES "75" CACHE STRING "CUDA architectures to build for" FORCE)
 message(STATUS "[GausStudio] Setting global CMAKE_CUDA_ARCHITECTURES to: ${CMAKE_CUDA_ARCHITECTURES}")
 
 # Propagate this setting to PyTorch for its JIT compiler (important!)
@@ -104,7 +104,7 @@ target_link_libraries(GausStudio Threads::Threads)
 # 7.5 is for turing architecture (GTX16)
 # 8.6 is for ampere (RTX)
 #set_target_properties(GausStudio PROPERTIES CUDA_ARCHITECTURES "70;75;86")
-set_target_properties(GausStudio PROPERTIES CUDA_ARCHITECTURES 86)
+set_target_properties(GausStudio PROPERTIES CUDA_ARCHITECTURES "75;86")
 
 target_link_libraries(
     GausStudio

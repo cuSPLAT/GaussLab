@@ -156,6 +156,8 @@ void Interface::startMainLoop() {
     int selected_index = 0;
     int n_threads = 1;
 
+    float dropout_p = 0.f;
+
     glm::vec3 centroid {0}; // a temporary
 
     // The main initial viewport
@@ -261,6 +263,7 @@ void Interface::startMainLoop() {
                     ImGui::Text("HU Threshold");
                     ImGui::SameLine(label_width);
                     ImGui::InputInt("##HU", &huThreshold);
+                    ImGui::SliderFloat("Dropout", &dropout_p, 0.f, 1.f);
                     ImGui::PopItemWidth();
 
                     // --- Face Camera Slider ---
@@ -307,14 +310,16 @@ void Interface::startMainLoop() {
                         {
                             torch::Device device = torch::kCUDA;
                             std::cout << device << "\n";
-                            InputData inputData = inputDataFromDicom(dicomDirectoryPath, windowWidth, windowCenter, huThreshold, 1, faceCameraIndex);
+                            InputData inputData = inputDataFromDicom(
+                                dicomDirectoryPath, windowWidth, windowCenter,
+                                huThreshold, 1, faceCameraIndex, dropout_p
+                            );
                             Model model(inputData, device);
                             GPUScene reconstructedScene = {
                                 .means = model.means,
                                 .colors = model.featuresDc,
                                 .opacities = 1 / (1 + torch::exp(-model.opacities)),
                                 .scales = torch::exp(model.scales),
-                                .quats = model.quats,
                             };
                             renderer->constructSplatSceneFromGPU(reconstructedScene);
                         }

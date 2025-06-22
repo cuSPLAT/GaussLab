@@ -196,7 +196,7 @@ void Renderer::constructSplatSceneFromGPU(GPUScene& scene) {
     gaussiansCount = scene.means.size(0);
     size_t meansBytes = gaussiansCount * 3 * sizeof(float);
     int floats_per_pt = 3  /*xyz*/ + 3 /*colors*/
-                          + 1 /*opacity*/ + 3 /*scale*/ + 4 /*quat*/;
+                          + 1 /*opacity*/ + 3 /*scale*/;
     size_t wholeBufferSize = gaussiansCount * floats_per_pt * sizeof(float);
 
     void *gaussianMeans_glBuffer, *gaussianScene_glBuffer;
@@ -250,13 +250,6 @@ void Renderer::constructSplatSceneFromGPU(GPUScene& scene) {
     );
     offset += scene.scales.size(0) * 3;
     scene.scales.reset();
-    cudaMemcpy(
-        (float*)gaussianScene_glBuffer + offset,
-        scene.quats.const_data_ptr(),
-        scene.quats.size(0) * 4 * sizeof(float),
-        cudaMemcpyDeviceToDevice
-    );
-    scene.quats.reset();
 
     cudaGraphicsUnmapResources(1, &gaussianMeansResource);
     cudaGraphicsUnmapResources(1, &gaussianBufferResource);

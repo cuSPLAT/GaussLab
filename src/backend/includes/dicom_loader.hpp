@@ -59,6 +59,7 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path,
                              double wc, 
                              int hu_threshold, 
                              int downsample,
-                             int up_direction_choice);
+                             int up_direction_choice,
+                             float dropout);
 
 #endif

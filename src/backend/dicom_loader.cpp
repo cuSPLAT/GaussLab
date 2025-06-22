@@ -1,5 +1,7 @@
 // dicom_loader.cpp
 
+#include <random>
+
 #include "includes/dicom_loader.hpp"
 #include <iostream>
 #include <vector>
@@ -126,7 +128,8 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
                              double WC, 
                              int HU_THRESHOLD, 
                              int POINT_CLOUD_DOWNSAMPLE,
-                             int up_direction_choice)
+                             int up_direction_choice,
+                             float dropout_p)
 {
     fs::path dicom_folder_path(dicom_folder_path_str);
     if (!fs::is_directory(dicom_folder_path))
@@ -150,6 +153,9 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
 
     #pragma omp parallel
     {
+        std::random_device rd;                          // Hardware entropy source
+        std::mt19937 gen(rd());                         // Mersenne Twister engine
+        std::uniform_real_distribution<float> dist(0.0f, 1.0f);
         dcmcore::DataSet thread_local_dataSet;
         // each thread will have its own temporary vectors to avoid locking on every pixel
         std::vector<CameraYassa> local_cameras;
@@ -271,30 +277,32 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
                     {
                         if (hu_value > HU_THRESHOLD)
                         {
-                             std::array<double, 3> pt_3d;
-                             // P = IPP + (c * ColSpacing * ColVector) + (r * RowSpacing * RowVector)
-                             for(int k=0; k<3; ++k)
-                             {
-                                // correct pairing: r with RowVector (iop[k]) and c with ColVector (iop[k+3])
-                                pt_3d[k] = ipp[k] + (c * ps[1] * iop[k + 3]) + (r * ps[0] * iop[k]);
-                             }
+                            if (dist(gen) > 1 - dropout_p)
+                                continue;
+                            std::array<double, 3> pt_3d;
+                            // P = IPP + (c * ColSpacing * ColVector) + (r * RowSpacing * RowVector)
+                            for(int k=0; k<3; ++k)
+                            {
+                            // correct pairing: r with RowVector (iop[k]) and c with ColVector (iop[k+3])
+                            pt_3d[k] = ipp[k] + (c * ps[1] * iop[k + 3]) + (r * ps[0] * iop[k]);
+                            }
 
-                             local_points.push_back(pt_3d);
-                             unsigned char g_byte = static_cast<unsigned char>(norm_val * 255.0);
-                             local_colors.push_back({g_byte, g_byte, g_byte});
-                        }
+                            local_points.push_back(pt_3d);
+                            unsigned char g_byte = static_cast<unsigned char>(norm_val * 255.0);
+                            local_colors.push_back({g_byte, g_byte, g_byte});
                     }
                 }
             }
+        }
 
-            // Convert image bytes to a torch::Tensor
-            cam.image_tensor = torch::from_blob(image_bytes.data(), {H, W}, torch::kU8).clone();
-            cam.image_tensor = cam.image_tensor.to(torch::kFloat32) / 255.0f; // Normalize
-            cam.image_tensor = cam.image_tensor.unsqueeze(-1).repeat({1, 1, 3}); // [H, W] -> [H, W, 1] -> [H, W, 3]
+        // Convert image bytes to a torch::Tensor
+        cam.image_tensor = torch::from_blob(image_bytes.data(), {H, W}, torch::kU8).clone();
+        cam.image_tensor = cam.image_tensor.to(torch::kFloat32) / 255.0f; // Normalize
+        cam.image_tensor = cam.image_tensor.unsqueeze(-1).repeat({1, 1, 3}); // [H, W] -> [H, W, 1] -> [H, W, 3]
 
-            // Add the completed camera and its pose to the local vectors for this thread
-            local_cameras.push_back(std::move(cam));
-            local_poses.push_back({current_id, pose});
+        // Add the completed camera and its pose to the local vectors for this thread
+        local_cameras.push_back(std::move(cam));
+        local_poses.push_back({current_id, pose});
         }
 
         #pragma omp critical

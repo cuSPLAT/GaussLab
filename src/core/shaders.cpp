@@ -118,21 +118,21 @@ const char* Shaders::gaussianVertexShader = R"(
     // too much overhead
     mat3 computeCov3D(vec4 rots, vec3 scales) {
       float scaleMod = 1.0f;
-      vec3 firstRow = vec3(
-        1.f - 2.f * (rots.z * rots.z + rots.w * rots.w),
-        2.f * (rots.y * rots.z - rots.x * rots.w),      
-        2.f * (rots.y * rots.w + rots.x * rots.z)       
-      );
-      vec3 secondRow = vec3(
-        2.f * (rots.y * rots.z + rots.x * rots.w),       
-        1.f - 2.f * (rots.y * rots.y + rots.w * rots.w), 
-        2.f * (rots.z * rots.w - rots.x * rots.y)        
-      );
-      vec3 thirdRow = vec3(
-        2.f * (rots.y * rots.w - rots.x * rots.z),       
-        2.f * (rots.z * rots.w + rots.x * rots.y),     
-        1.f - 2.f * (rots.y * rots.y + rots.z * rots.z) 
-      );
+      //vec3 firstRow = vec3(
+      //  1.f - 2.f * (rots.z * rots.z + rots.w * rots.w),
+      //  2.f * (rots.y * rots.z - rots.x * rots.w),      
+      //  2.f * (rots.y * rots.w + rots.x * rots.z)       
+      //);
+      //vec3 secondRow = vec3(
+      //  2.f * (rots.y * rots.z + rots.x * rots.w),       
+      //  1.f - 2.f * (rots.y * rots.y + rots.w * rots.w), 
+      //  2.f * (rots.z * rots.w - rots.x * rots.y)        
+      //);
+      //vec3 thirdRow = vec3(
+      //  2.f * (rots.y * rots.w - rots.x * rots.z),       
+      //  2.f * (rots.z * rots.w + rots.x * rots.y),     
+      //  1.f - 2.f * (rots.y * rots.y + rots.z * rots.z) 
+      //);
 
       mat3 scaleMatrix = mat3(
         scaleMod * scales.x, 0, 0, 
@@ -140,13 +140,13 @@ const char* Shaders::gaussianVertexShader = R"(
         0, 0, scaleMod * scales.z
       );
 
-      mat3 rotMatrix = mat3(
-        firstRow,
-        secondRow,
-        thirdRow
-      );
-      mat3 mMatrix = scaleMatrix * rotMatrix;
-      mat3 sigma = transpose(mMatrix) * mMatrix;
+      //mat3 rotMatrix = mat3(
+      //  firstRow,
+      //  secondRow,
+      //  thirdRow
+      //);
+      //mat3 mMatrix = scaleMatrix * rotMatrix;
+      mat3 sigma = transpose(scaleMatrix) * scaleMatrix;
       return sigma;
     };
 
