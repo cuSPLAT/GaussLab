@@ -320,6 +320,7 @@ void Interface::startMainLoop() {
                                 .colors = model.featuresDc,
                                 .opacities = 1 / (1 + torch::exp(-model.opacities)),
                                 .scales = torch::exp(model.scales),
+                                .centroid = {model.centroid_f[0], model.centroid_f[1], model.centroid_f[2]}
                             };
                             renderer->constructSplatSceneFromGPU(reconstructedScene);
                         }

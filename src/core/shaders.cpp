@@ -6,7 +6,7 @@
 // This is marching cubes shader for now
 const char* Shaders::vertexShader = R"(
     #version 460 core
-    layout (location = 3) in vec3 aPos;
+    layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec3 aNormal;
 
     out vec3 Normal;
@@ -20,10 +20,10 @@ const char* Shaders::vertexShader = R"(
 
     void main() {
         gl_Position = projection * view * model * vec4(aPos, 1.0f);
-        //FragPos = vec3(view * vec4(aPos, 1.0f));
+        FragPos = vec3(view * vec4(aPos, 1.0f));
         vertexColor = vec3(0.94f, 0.9f, 0.69f);
-        //WorldPos = aPos;
-        //Normal = normalize(aNormal);
+        WorldPos = aPos;
+        Normal = normalize(aNormal);
     }
 )";
 
@@ -45,13 +45,13 @@ const char* Shaders::fragmentShader = R"(
                 discard;
             }
         }
-        //vec3 lightDir = normalize(vec3(0, 0, 0) - FragPos);
+        vec3 lightDir = normalize(vec3(0, 0, 0) - FragPos);
 
-        //float diff = max(dot(Normal, lightDir), 0.0);
-        //vec3 diffuse = diff * vec3(0.9, 0.9, 0.9);
+        float diff = max(dot(Normal, lightDir), 0.0);
+        vec3 diffuse = diff * vec3(0.9, 0.9, 0.9);
         // Ambient + diffuse
-        //vec3 result = (0.3f + diffuse) * vertexColor; 
-        FragColor = vec4(vertexColor, 1.0f);
+        vec3 result = (0.3f + diffuse) * vertexColor; 
+        FragColor = vec4(result, 1.0f);
     }
 )";
 

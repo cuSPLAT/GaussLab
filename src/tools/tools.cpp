@@ -33,6 +33,12 @@ void drawToolBox_ImGui() {
         activeTool = AvailableTools::Slicing;
         ::globalState.in_view_mode = false;
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Clear")) {
+        const GLuint optional = glGetUniformLocation(
+            ::globalState.vertexProgram, "planeExists");
+        glUniform1i(optional, false);
+    }
 }
 
 };

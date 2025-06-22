@@ -32,6 +32,7 @@ struct GPUScene {
     torch::Tensor quats;
 
     size_t bufferSize;
+    glm::vec3 centroid;
 };
 
 // A global state for the renderer, this will be used to pass data between classes

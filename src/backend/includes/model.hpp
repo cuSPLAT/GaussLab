@@ -35,8 +35,7 @@ struct Model
     {
       long long numPoints = inputData.points.xyz.size(0);
 
-      torch::manual_seed(42);
-
+      centroid = torch::mean(inputData.points.xyz, /*dim=*/0);
       means = inputData.points.xyz.to(device);
 
       torch::Tensor initial_scales = spatial_grid_knn_scales(means, 4); // 4 = self + 3 neighbors
@@ -44,23 +43,24 @@ struct Model
       
       torch::Tensor identity_quat = torch::tensor({0.0f, 0.0f, 0.0f, 1.0f}, 
                                     torch::dtype(torch::kFloat32).device(device));
-      quats = identity_quat.repeat({numPoints, 1});
 
-      // featuresDc = rgb2sh(inputData.points.rgb.toType(torch::kFloat64) / 255.0).toType(torch::kFloat32).to(device);
       featuresDc = rgb2sh(inputData.points.rgb).to(device);
       opacities = torch::logit(0.1f * torch::ones({numPoints, 1})).to(device);
       backgroundColor = torch::zeros({1}, device);
+      memcpy(centroid_f, centroid.data_ptr<float>(), 3 * sizeof(float));
   }
 
   PlyData getPlyData();
-  // void savePly(const std::string &filename);
-  // void savePlyOptimized(const std::string &filename);
   
   torch::Tensor means;
   torch::Tensor scales;
   torch::Tensor quats;
   torch::Tensor featuresDc;
   torch::Tensor opacities;
+
+    torch::Tensor centroid;
+    float centroid_f[3];
+
   
   torch::Tensor radii; // set in forward()
   torch::Tensor xys;   // set in forward()

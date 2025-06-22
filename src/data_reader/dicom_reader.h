@@ -1,7 +1,7 @@
 #pragma once
 
 #include <atomic>
-#define DEFAULT_DICOM_DICTIONARY "/mnt/hdd/senior2/grad_project/messi/dictionary.txt"
+#define DEFAULT_DICOM_DICTIONARY "/home/Abdelrahman/projects/gradproject/GausStudio/dictionary.txt"
 
 #define getDataManipulator(file, tag) file.data_set()->element<tag>()->manipulator()
 
