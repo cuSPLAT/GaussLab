@@ -55,7 +55,6 @@ void DicomReader::readDirectory(const std::string& path) {
     
     // Clear previous data
     dicomFiles.clear();
-    dicomFilePaths.clear();
     loadingProgress = 0;
     
     for (const auto &entry: fs::directory_iterator(path)) {
@@ -63,8 +62,8 @@ void DicomReader::readDirectory(const std::string& path) {
         if (entry.is_regular_file()) {
             try {
                 dicomFiles.emplace_back(entry.path().string());
-                if (dicomFilePaths.empty()) {
-                    dicomFilePaths.push_back(entry.path().string());
+                if (dicomFilePath.empty()) {
+                    dicomFilePath = entry.path().string();
                 }
             } catch (const std::exception& e) {
             }

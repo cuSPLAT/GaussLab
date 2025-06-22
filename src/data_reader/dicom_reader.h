@@ -11,7 +11,7 @@
 
 class DicomReader {
     std::vector<vega::dicom::File> dicomFiles;
-    std::vector<std::string> dicomFilePaths;
+    std::string dicomFilePath="";
 
     std::vector<std::thread> threads;
 
@@ -21,8 +21,8 @@ public:
     std::atomic<std::uint64_t> totalSize {10000000};
 
     const std::vector<vega::dicom::File>& getDicomFiles() const { return dicomFiles; }
-    const std::vector<std::string>& getDicomFilePaths() const { 
-        return dicomFilePaths; }
+    std::string getDicomFilePaths() const { 
+        return dicomFilePath; }
 
     struct DicomData {
         std::unique_ptr<float[]> buffer;

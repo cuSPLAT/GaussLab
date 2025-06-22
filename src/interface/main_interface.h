@@ -9,6 +9,7 @@
 
 #include <core/renderer.h>
 #include <data_reader/dicom_reader.h>
+#include "dicom_viewer.h"
 
 struct ChatMessage {
     std::string text;
@@ -50,6 +51,9 @@ public:
         std::vector<unsigned char>& sagittalBuf
     );
     void ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog);
+    void ShowDicomViewer();
+
+
     std::string openFileDialog();
 
     void createMenuBar();
