@@ -12,13 +12,17 @@
 #include <core/renderer.h>
 #include <data_reader/dicom_reader.h>
 
+struct ChatMessage {
+    std::string text;
+    bool isGemini;
+};
+
 class Interface {
     GLFWwindow* window;
     unsigned int width, height;
 
     // A pointer for now will be refactored later
     Renderer* renderer;
-    DicomReader dcmReader;
 
     nfdopendialogu8args_t args;
 
@@ -31,12 +35,16 @@ class Interface {
     float gaussianScale = 1.0f;
     std::string dicomDirectoryPath;
 
-    void setupStyle();
+    DicomReader dcmReader;
 
 public:
+
     Interface();
     ~Interface();
 
+    const DicomReader& getDicomReader() const { return dcmReader; }
+
+    void setupStyle();
     bool setupWindow();
     bool initOpengl();
 
@@ -44,9 +52,22 @@ public:
     void setupRenderer();
     void startMainLoop();
 
+    void ShowViewerWindow(
+        int& axialSlice, int& coronalSlice, int& sagittalSlice,
+        GLuint& axialTex, GLuint& coronalTex, GLuint& sagittalTex,
+        std::vector<unsigned char>& axialBuf,
+        std::vector<unsigned char>& coronalBuf,
+        std::vector<unsigned char>& sagittalBuf,
+        float& windowCenter, float& windowWidth,
+        bool& enableWindowing
+    );
+    void ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog);
+    void ShowDicomViewer();
+
     std::optional<std::string> openFileDialog();
 
     void createMenuBar();
+    void createViewWindow();
     void createDockSpace();
 
 };
