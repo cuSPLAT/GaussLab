@@ -617,7 +617,7 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
     static float typingTimer = 0.0f;
     static std::string currentTypingMessage = "";
 
-    ImGui::Begin("Gemini Assistant", nullptr, ImGuiWindowFlags_NoCollapse);
+    ImGui::Begin("GaussLab Assistant", nullptr, ImGuiWindowFlags_NoCollapse);
 
     float inputHeight = ImGui::GetFrameHeightWithSpacing() * 2; // or a small constant if you want
     float chatLogHeight = ImGui::GetContentRegionAvail().y - inputHeight;
@@ -641,7 +641,7 @@ void Interface::ShowChatWindow(int axialSlice, std::vector<ChatMessage>& chatLog
         else {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.6f, 1.0f, 1.0f));  // Light blue for Gemini
             if (i == chatLog.size() - 1 && !currentTypingMessage.empty()) {
-                std::string displayText = "Gemini: " + currentTypingMessage.substr(0, typingPosition);
+                std::string displayText = "GaussLab: " + currentTypingMessage.substr(0, typingPosition);
                 ImGui::TextWrapped("%s", displayText.c_str());
             } else {
                 ImGui::TextWrapped("%s", message.text.c_str());
