@@ -20,11 +20,6 @@
 #include "request.hpp"
 #include "dicom_viewer.h"
 
-// DCMTK includes
-#include <dcmtk/dcmdata/dctk.h>
-#include <dcmtk/dcmdata/dcfilefo.h>
-#include <dcmtk/dcmdata/dcdeftag.h>
-#include <dcmtk/dcmdata/dcstack.h>
 
 Interface::Interface() = default;
 
