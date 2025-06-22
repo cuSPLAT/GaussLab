@@ -52,7 +52,34 @@ std::vector<DicomEntry> loadDicomTags(const std::string& path) {
                     value = "<Pixel Data not shown>";
                 } else {
                     try {
-                        value = element->str();
+                        // Check VR type to determine if we can safely convert to string
+                        const auto& vr = element->vr();
+                        
+                        // Handle different VR types appropriately
+                        if (vr == vega::vr::SQ) {
+                            // Sequence - show number of items
+                            if (element->is_sequence()) {
+                                size_t count = 0;
+                                for (auto it = element->begin(); it != element->end(); ++it) {
+                                    count++;
+                                }
+                                value = "<Sequence with " + std::to_string(count) + " items>";
+                            } else {
+                                value = "<Sequence>";
+                            }
+                        } else if (vr == vega::vr::OB || vr == vega::vr::OW || vr == vega::vr::UN) {
+                            // Binary data - show size
+                            value = "<Binary data, " + std::to_string(element->length()) + " bytes>";
+                        } else if (vr == vega::vr::AT) {
+                            // Attribute tag - special handling
+                            value = element->str();
+                        } else {
+                            // Try to convert to string for other types
+                            value = element->str();
+                            if (value.empty()) {
+                                value = "<Empty>";
+                            }
+                        }
                     } catch (const std::exception& e) {
                         value = "<Could not read>";
                     }

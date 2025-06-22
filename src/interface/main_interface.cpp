@@ -648,7 +648,7 @@ void Interface::ShowDicomViewer() {
     static std::string lastDicomPath="";
     static std::vector<DicomEntry> entries;
     const auto& dicomFilePaths = this->dcmReader.getDicomFilePaths();
-    std::cout<<dicomFilePaths;
+
     if (dicomFilePaths !="") {
         
         if (dicomFilePaths != lastDicomPath) {
