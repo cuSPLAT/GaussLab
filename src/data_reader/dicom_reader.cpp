@@ -106,6 +106,9 @@ void DicomReader::readDirectory(const std::string& path) {
     loadedData.length = height;
     loadedData.height = dicomFiles.size();
 
+    // maybe later it is better to notify a thread
+    loadedData.readable.test_and_set();
+
     // Extract windowing info
     try {
         auto wc_manip = getDataManipulator(dicomFiles[0], vega::dictionary::WindowCenter);
@@ -179,8 +182,6 @@ void DicomReader::readDirectory(const std::string& path) {
     }
 
 
-    // maybe later it is better to notify a thread
-    loadedData.readable.test_and_set();
 }
 
 // A wrapper for starting the reader from another thread

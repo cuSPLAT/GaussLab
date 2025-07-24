@@ -2,18 +2,18 @@
 
 #include <debug_utils.h>
 
+#include <data_reader/nifti_reader.h>
+
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <glm/common.hpp>
 #include <glm/glm.hpp>
 #include <glm/fwd.hpp>
-#include <iostream>
 #include <mutex>
 #include <thread>
-#include <tuple>
 #include <vector>
-
-typedef std::tuple<int, int, int> vec3; //  will be removed
+#include <iostream>
 
 std::vector<Vertex> MarchingCubes::OutputVertices;
 std::vector<std::thread> MarchingCubes::threads;
@@ -27,7 +27,7 @@ std::mutex MarchingCubes::vertex_mutex;
 
 int MarchingCubes::num_threads = 0;
 
-uint8_t edge_vertex_pairs[][6] = {
+const uint8_t edge_vertex_pairs[][6] = {
     {0, 0, 0, 1, 0, 0},
     {1, 0, 0, 1, 1, 0},
     {1, 1, 0, 0, 1, 0},
@@ -42,11 +42,11 @@ uint8_t edge_vertex_pairs[][6] = {
     {0, 1, 0, 0, 1, 1},
 };
 
-int8_t* get_triangulations(
-    vec3 pos, int width, int length, int height, float threshold, float* buffer, int step
+static int8_t* get_triangulations(
+    const glm::vec<3, int>& pos, int width, int length, int height, float threshold, float* buffer, int step
 ) {
-    const auto [x, y, z] = pos;
     const int sliceArea = width * length;
+    const int &x = pos.x, &y = pos.y, &z = pos.z;
 
     uint8_t index = 0;
     index |= buffer[x + y * width + z * sliceArea] > threshold;
@@ -72,12 +72,14 @@ void MarchingCubes::marching_cubes(
 
     std::vector<Vertex> TemporaryBuffer;
 
+    SegmentationMask segmented_mask { "skull.nii.gz" };
+
     for (int z = start_z; z < start_z + thread_stride && z < height - step; z += step) {
         for (int y = 0; y < length - step; y += step) {
             for (int x = 0; x < width - step; x += step) {
 
                 int8_t* edges = get_triangulations(
-                    std::make_tuple(x, y, z), width, length,
+                    glm::vec<3, int>(x, y, z), width, length,
                     height, threshold, buffer, step
                 );
 
@@ -92,7 +94,7 @@ void MarchingCubes::marching_cubes(
                     glm::vec3 p2(
                         x + edge_vertex_pairs[edge][3] * step,
                         y + edge_vertex_pairs[edge][4] * step,
-                        z + edge_vertex_pairs[edge][5] * step // maybe here - shouldn't be, except if step is changing
+                        z + edge_vertex_pairs[edge][5] * step
                     );
                     const int p2_val = buffer[(int)p2.x + (int)p2.y * width + (int)p2.z * area];
                     const int p1_val = buffer[(int)p1.x + (int)p1.y * width + (int)p1.z * area];
@@ -101,6 +103,8 @@ void MarchingCubes::marching_cubes(
                     fake_Mu = glm::max(0.f, glm::min(fake_Mu, 1.f));
 
                     glm::vec3 interpolated_p = p1 + fake_Mu * (p2 - p1);
+                    glm::vec<3, int> rounded_p = glm::round(interpolated_p);
+                    auto current_val = segmented_mask[rounded_p];
 
                     // Normal calculations must be improved
                     float dx = (buffer[(int)(x - 0.5f) + (int)y * width + (int)z * area]
@@ -114,6 +118,13 @@ void MarchingCubes::marching_cubes(
                         -(interpolated_p.z - height) / height,
                         (interpolated_p.y - length) / length
                     });
+
+                    if (!current_val)
+                        TemporaryBuffer.push_back({1.f, 1.f, 1.f});
+                    else
+                        // only keep the blue or smth
+                        TemporaryBuffer.push_back({0.f, 0.f, 1.f});
+
                     TemporaryBuffer.push_back({dx, dy, dz});
 
                     local_centroid.x += (interpolated_p.x - width) / width;

@@ -7,7 +7,8 @@
 const char* Shaders::vertexShader = R"(
     #version 460 core
     layout (location = 0) in vec3 aPos;
-    layout (location = 1) in vec3 aNormal;
+    layout (location = 1) in vec3 aMaskColor;
+    layout (location = 2) in vec3 aNormal;
 
     out vec3 Normal;
     out vec3 FragPos;
@@ -18,10 +19,12 @@ const char* Shaders::vertexShader = R"(
     uniform mat4 model;
     uniform mat4 projection;
 
+    #define BONE_COLOR vec3(0.94f, 0.9f, 0.69f)
+
     void main() {
         gl_Position = projection * view * model * vec4(aPos, 1.0f);
         FragPos = vec3(view * vec4(aPos, 1.0f));
-        vertexColor = vec3(0.94f, 0.9f, 0.69f);
+        vertexColor = BONE_COLOR * aMaskColor;
         WorldPos = aPos;
         Normal = normalize(aNormal);
     }

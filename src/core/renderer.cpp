@@ -79,6 +79,16 @@ void Renderer::generateInitialBuffers() {
     GLuint GaussianFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(GaussianFragmentShader, 1, &Shaders::gaussianFragmentShader, nullptr);
     glCompileShader(GaussianFragmentShader);
+
+    GLint success;
+    glGetShaderiv(PCDVertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char infoLog[1024];
+        glGetShaderInfoLog(PCDVertexShader, sizeof(infoLog), nullptr, infoLog);
+        std::cerr << "ERROR::SHADER_COMPILATION_ERROR of type: " 
+                  << "\n" << infoLog << "\n";
+    }
+
     
     //TODO: move this to a macro or inline function
     shaderProgram = glCreateProgram();
@@ -135,16 +145,19 @@ void Renderer::allocateSortingBuffers() {
 }
 
 void Renderer::constructMeshScene(std::vector<Vertex>& vertices) {
-    verticesCount = vertices.size() / 2;
+    verticesCount = vertices.size() / 3;
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(Vertex), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // Temporary normals
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(Vertex), (void*)sizeof(Vertex));
     glEnableVertexAttribArray(1);
+
+    // Temporary normals
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(Vertex), (void*)(2 * sizeof(Vertex)));
+    glEnableVertexAttribArray(2);
     const GLuint optional = glGetUniformLocation(shaderProgram, "planeExists");
     glUniform1i(optional, false);
 

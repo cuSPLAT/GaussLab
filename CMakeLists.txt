@@ -11,6 +11,7 @@ set(CMAKE_CUDA_ARCHITECTURES "75" CACHE STRING "CUDA architectures to build for"
 message(STATUS "[GausStudio] Setting global CMAKE_CUDA_ARCHITECTURES to: ${CMAKE_CUDA_ARCHITECTURES}")
 
 add_subdirectory(external/nativefiledialog)
+add_subdirectory(external/nifti_clib)
 add_subdirectory(external/vega)
 add_subdirectory(src/backend)
 
@@ -64,6 +65,7 @@ set(ALGORITHMS
 
 set(DATA_READER
     "src/data_reader/dicom_reader.cpp"
+    "src/data_reader/nifti_reader.cpp"
 )
 
 include_directories(SYSTEM "external/glad/include")
@@ -72,7 +74,8 @@ include_directories(SYSTEM "external/happly")
 include_directories(SYSTEM "external/nativefiledialog/src/include")
 include_directories(SYSTEM "external/imgui/backends")
 include_directories(SYSTEM "external/vega/include")
-include_directories(SYSTEM "external/RadixSort")
+include_directories(SYSTEM "external/nifti_clib/znzlib")
+include_directories(SYSTEM "external/nifti_clib/niftilib")
 include_directories(/usr/local/cuda/include)
 
 
@@ -114,5 +117,6 @@ target_link_libraries(
     nfd
     vega
     cusplat
+    niftiio
     -fopenmp
 )
