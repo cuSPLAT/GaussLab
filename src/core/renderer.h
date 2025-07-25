@@ -35,31 +35,6 @@ struct GPUScene {
     glm::vec3 centroid;
 };
 
-// A global state for the renderer, this will be used to pass data between classes
-// instead of always having to call a function from one class with certain parameters
-// which would get messy after time
-struct GlobalState {
-    enum class RenderMode {
-        Splats,
-        PCD
-    };
-
-    // write from GUI only
-    RenderMode renderingMode = RenderMode::Splats;
-    bool sortingEnabled = true;
-    bool windowHovered = false;
-    bool in_view_mode = true;
-
-    // on start the first viewport is selected
-    int selectedViewport = 0;
-    int available_threads = std::thread::hardware_concurrency();
-
-    GLuint vertexProgram, gaussianProgram;
-
-    GLuint debugMode = GL_TRIANGLES;
-};
-extern GlobalState globalState;
-
 class Renderer {
     static float quadVertices[8];
     static int quadIndices[6];
@@ -79,8 +54,6 @@ class Renderer {
     cudaGraphicsResource_t cu_buffers[4];
     bool gaussianSceneCreated = false;
 
-    unsigned int width, height;
-
     void allocateGaussianQuad();
     void allocateSortingBuffers();
     void processGaussianSplats(int i);
@@ -91,9 +64,10 @@ public:
     unsigned int gaussiansCount = 0;
 
 public:
-    Renderer(int width, int height);
+    Renderer() = default;
     ~Renderer();
 
+    bool initOpenGL(GLFWwindow* window);
     void generateInitialBuffers();
     // I will do a getter later
     GLuint shaderProgram, veryRealComputeProgram;

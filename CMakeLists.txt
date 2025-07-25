@@ -44,6 +44,7 @@ set(INTERFACE_SRC
 )
 
 set(CORE
+    "src/core/engine.cpp"
     "src/core/renderer.cpp"
     "src/core/shaders.cpp"
     "src/core/camera.cpp"

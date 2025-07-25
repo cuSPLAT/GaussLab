@@ -1,26 +1,11 @@
-#include <iostream>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
-
-#include <interface/main_interface.h>
+#include <core/engine.h>
 
 int main() {
-
-    // Initialize GLFW
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return -1;
+    try {
+        GaussLabEngine engine;
+        engine.run();
+    } catch (std::exception& e) {
+        return EXIT_FAILURE;
     }
-
-    Interface interface;
-    interface.setupWindow();
-    interface.initOpengl();
-    interface.setupImgui();
-    interface.setupRenderer();
-    interface.startMainLoop();
-
-    return 0;
+    return EXIT_SUCCESS;
 }

@@ -4,28 +4,13 @@
 
 #include <data_reader/nifti_reader.h>
 
+#include <iostream>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <glm/common.hpp>
 #include <glm/glm.hpp>
 #include <glm/fwd.hpp>
-#include <mutex>
-#include <thread>
-#include <vector>
-#include <iostream>
-
-std::vector<Vertex> MarchingCubes::OutputVertices;
-std::vector<std::thread> MarchingCubes::threads;
-
-decltype(std::chrono::high_resolution_clock::now()) MarchingCubes::last_iter_timer 
-    = std::chrono::high_resolution_clock::now();
-
-std::atomic_flag MarchingCubes::marched;
-std::atomic<uint8_t> MarchingCubes::finished {0};
-std::mutex MarchingCubes::vertex_mutex;
-
-int MarchingCubes::num_threads = 0;
 
 const uint8_t edge_vertex_pairs[][6] = {
     {0, 0, 0, 1, 0, 0},
@@ -61,7 +46,7 @@ static int8_t* get_triangulations(
     return triangle_table[index];
 }
 
-void MarchingCubes::marching_cubes(
+void MarchingCubesEngine::marching_cubes(
     float* buffer, int width, int length, int height, float threshold,
     glm::vec3& centroid, int step, int n_threads, int thread_idx
 ) {
@@ -153,7 +138,7 @@ void MarchingCubes::marching_cubes(
     }
 }
 
-void MarchingCubes::launchThreaded(
+void MarchingCubesEngine::launchThreaded(
     float* buffer, int width, int length, int height, float threshold,
     glm::vec3& centroid, int step, int n_threads
 ) {
@@ -165,7 +150,8 @@ void MarchingCubes::launchThreaded(
 
     for (int thread_idx = 0; thread_idx < n_threads; thread_idx++) {
         threads.emplace_back(
-            marching_cubes,
+            &MarchingCubesEngine::marching_cubes,
+            this,
             buffer,
             width, length, height,
             threshold, std::ref(centroid),
@@ -174,7 +160,7 @@ void MarchingCubes::launchThreaded(
     }
 }
 
-void MarchingCubes::cleanUp() {
+void MarchingCubesEngine::cleanUp() {
     LOG_CLIENT("Cleaning running threads for Marching Cubes")
 
     for (auto& thread : threads) {
@@ -183,7 +169,7 @@ void MarchingCubes::cleanUp() {
 }
 
 
-int8_t triangle_table[256][16] =
+int8_t MarchingCubesEngine::triangle_table[256][16] =
 {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},

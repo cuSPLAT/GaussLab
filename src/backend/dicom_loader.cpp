@@ -150,6 +150,31 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
     // --- we need these for thread-safe accumulation --- ? you don't even need the cameras
     std::vector<CameraYassa> cameras_accumulator;
     std::vector<std::pair<int, torch::Tensor>> poses_accumulator;
+    std::ifstream pcd;
+    std::vector<std::array<double, 3>> local_points;
+    std::vector<std::array<unsigned char, 3>> local_colors;
+    std::random_device rd;                          // Hardware entropy source
+    std::mt19937 gen(rd());                         // Mersenne Twister engine
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+    pcd.open("/home/Abdelrahman/projects/gradproject/GausStudio/build/output.xyz");
+    
+    float x, y, z;
+    while (pcd >> x >> y >> z)
+    {
+        if (dist(gen) > 1 - dropout_p)
+            continue;
+        
+        std::array<double, 3> pt_3d = {x, y, z};
+        std::array<unsigned char, 3> color;
+        color[0] = (int)x * 255;
+        color[1] = (int)y * 255;
+        color[2] = (int)z * 255;
+        local_points.push_back(pt_3d);
+        local_colors.push_back(color);
+
+
+    }
 
     #pragma omp parallel
     {
@@ -165,153 +190,153 @@ InputData inputDataFromDicom(const std::string& dicom_folder_path_str,
         std::vector<std::array<double, 3>> local_points;
         std::vector<std::array<unsigned char, 3>> local_colors;
 
-        #pragma omp for schedule(dynamic) nowait
-        for (size_t i = 0; i < slice_infos.size(); ++i)
-        {
-            const auto& slice_info = slice_infos[i];
-            if (!loadDicomFile(slice_info.file_path, thread_local_dataSet)) continue;
+        //#pragma omp for schedule(dynamic) nowait
+        //for (size_t i = 0; i < slice_infos.size(); ++i)
+        //{
+        //    const auto& slice_info = slice_infos[i];
+        //    if (!loadDicomFile(slice_info.file_path, thread_local_dataSet)) continue;
 
-            // --- 1. extract Metadata ---
-            unsigned short W = dcm::getColumns(thread_local_dataSet);
-            unsigned short H = dcm::getRows(thread_local_dataSet);
-            auto ipp_opt = dcm::getImagePositionPatient(thread_local_dataSet);
-            auto iop_opt = dcm::getImageOrientationPatient(thread_local_dataSet);
-            auto ps_opt = dcm::getPixelSpacing(thread_local_dataSet);
+        //    // --- 1. extract Metadata ---
+        //    unsigned short W = dcm::getColumns(thread_local_dataSet);
+        //    unsigned short H = dcm::getRows(thread_local_dataSet);
+        //    auto ipp_opt = dcm::getImagePositionPatient(thread_local_dataSet);
+        //    auto iop_opt = dcm::getImageOrientationPatient(thread_local_dataSet);
+        //    auto ps_opt = dcm::getPixelSpacing(thread_local_dataSet);
 
-            const double rescale_slope = dcm::getRescaleSlope(thread_local_dataSet);
-            const double rescale_intercept = dcm::getRescaleIntercept(thread_local_dataSet);
+        //    const double rescale_slope = dcm::getRescaleSlope(thread_local_dataSet);
+        //    const double rescale_intercept = dcm::getRescaleIntercept(thread_local_dataSet);
 
-            if (!W || !H || !ipp_opt || !iop_opt || !ps_opt)
-            {
-                #pragma omp critical
-                std::cerr << "Skipping slice " << slice_info.file_path.filename() << " due to missing geometry tags." << std::endl;
-                continue;
-            }
+        //    if (!W || !H || !ipp_opt || !iop_opt || !ps_opt)
+        //    {
+        //        #pragma omp critical
+        //        std::cerr << "Skipping slice " << slice_info.file_path.filename() << " due to missing geometry tags." << std::endl;
+        //        continue;
+        //    }
 
-            // --- 2. create Camera object ---
-            CameraYassa cam;
-            int current_id = static_cast<int>(i);
-            cam.id = current_id;
-            cam.width = W;
-            cam.height = H;
+        //    // --- 2. create Camera object ---
+        //    CameraYassa cam;
+        //    int current_id = static_cast<int>(i);
+        //    cam.id = current_id;
+        //    cam.width = W;
+        //    cam.height = H;
 
-            // --- 3. Calculate Fake Perspective Intrinsics ---
-            // We must invent a field of view. 30 degrees is a reasonable guess.
-            const float fov_y_degrees = 30.0f;
-            const float fov_y_radians = fov_y_degrees * (M_PI / 180.0f);
-            cam.fy = static_cast<float>(H) / (2.0f * tan(fov_y_radians / 2.0f));
-            cam.fx = cam.fy; // assume square pixels for simplicity
-            cam.cx = static_cast<float>(W) / 2.0f;
-            cam.cy = static_cast<float>(H) / 2.0f;
-            cam.K = cam.getIntrinsicsMatrix();
+        //    // --- 3. Calculate Fake Perspective Intrinsics ---
+        //    // We must invent a field of view. 30 degrees is a reasonable guess.
+        //    const float fov_y_degrees = 30.0f;
+        //    const float fov_y_radians = fov_y_degrees * (M_PI / 180.0f);
+        //    cam.fy = static_cast<float>(H) / (2.0f * tan(fov_y_radians / 2.0f));
+        //    cam.fx = cam.fy; // assume square pixels for simplicity
+        //    cam.cx = static_cast<float>(W) / 2.0f;
+        //    cam.cy = static_cast<float>(H) / 2.0f;
+        //    cam.K = cam.getIntrinsicsMatrix();
 
-            // --- 4. Calculate Pose (camToWorld) ---
-            const auto& iop = *iop_opt; // [Xx,Xy,Xz, Yx,Yy,Yz]
-            const auto& ipp = *ipp_opt; // [Tx,Ty,Tz]
-            const auto& ps = *ps_opt;   // {row_spacing, col_spacing}
-            
-            torch::Tensor R = torch::zeros({3, 3}, torch::kFloat32);
-            auto R_acc = R.accessor<float, 2>();
-            
-            // X vector
-            R_acc[0][0] = iop[0]; R_acc[1][0] = iop[1]; R_acc[2][0] = iop[2];
-            // Y vector
-            R_acc[0][1] = iop[3]; R_acc[1][1] = iop[4]; R_acc[2][1] = iop[5];
-            // Z vector (cross product of X and Y)
-            torch::Tensor x_vec = R.index({torch::indexing::Slice(), 0});
-            torch::Tensor y_vec = R.index({torch::indexing::Slice(), 1});
-            torch::Tensor z_vec = torch::cross(x_vec, y_vec, /*dim=*/ 0);
-            
-            R.index_put_({torch::indexing::Slice(), 2}, z_vec);
+        //    // --- 4. Calculate Pose (camToWorld) ---
+        //    const auto& iop = *iop_opt; // [Xx,Xy,Xz, Yx,Yy,Yz]
+        //    const auto& ipp = *ipp_opt; // [Tx,Ty,Tz]
+        //    const auto& ps = *ps_opt;   // {row_spacing, col_spacing}
+        //    
+        //    torch::Tensor R = torch::zeros({3, 3}, torch::kFloat32);
+        //    auto R_acc = R.accessor<float, 2>();
+        //    
+        //    // X vector
+        //    R_acc[0][0] = iop[0]; R_acc[1][0] = iop[1]; R_acc[2][0] = iop[2];
+        //    // Y vector
+        //    R_acc[0][1] = iop[3]; R_acc[1][1] = iop[4]; R_acc[2][1] = iop[5];
+        //    // Z vector (cross product of X and Y)
+        //    torch::Tensor x_vec = R.index({torch::indexing::Slice(), 0});
+        //    torch::Tensor y_vec = R.index({torch::indexing::Slice(), 1});
+        //    torch::Tensor z_vec = torch::cross(x_vec, y_vec, /*dim=*/ 0);
+        //    
+        //    R.index_put_({torch::indexing::Slice(), 2}, z_vec);
 
-            torch::Tensor T = torch::tensor({ipp[0], ipp[1], ipp[2]}, torch::kFloat32);
-            
-            // Calculate offset from top-left corner to image center in world coordinates
-            // Offset = (W/2 * ColSpacing * ColVector) + (H/2 * RowSpacing * RowVector)
-            torch::Tensor offset_to_center = torch::zeros({3}, torch::kFloat32);
-            for (int k = 0; k < 3; ++k)
-            {
-                // Note the correct pairing: H/2 with RowVector (iop[k]) and W/2 with ColVector (iop[k+3])
-                offset_to_center[k] = (static_cast<double>(W) / 2.0 * ps[1] * iop[k+3]) + 
-                                      (static_cast<double>(H) / 2.0 * ps[0] * iop[k]);
-            }
-            
-            T += offset_to_center;
-            torch::Tensor pose = torch::eye(4, torch::kFloat32);
-            pose.index_put_({torch::indexing::Slice(0, 3), torch::indexing::Slice(0, 3)}, R);
-            pose.index_put_({torch::indexing::Slice(0, 3), 3}, T);
-            
-            // Convert to OpenGL camera coordinates
-            // This negates the local Y and Z axes of the camera.
-            pose.index_put_({torch::indexing::Slice(), torch::indexing::Slice(1,3)}, pose.index({torch::indexing::Slice(), torch::indexing::Slice(1,3)}) * -1.0f);
-            
-            // --- 5. Process Pixel Data for Image Tensor and Point Cloud ---
-            dcmcore::Buffer raw_pixel_buffer;
-            size_t pixel_data_len = 0;
-            thread_local_dataSet.GetBuffer(DicomTags_NG::PixelData, raw_pixel_buffer, pixel_data_len);
+        //    torch::Tensor T = torch::tensor({ipp[0], ipp[1], ipp[2]}, torch::kFloat32);
+        //    
+        //    // Calculate offset from top-left corner to image center in world coordinates
+        //    // Offset = (W/2 * ColSpacing * ColVector) + (H/2 * RowSpacing * RowVector)
+        //    torch::Tensor offset_to_center = torch::zeros({3}, torch::kFloat32);
+        //    for (int k = 0; k < 3; ++k)
+        //    {
+        //        // Note the correct pairing: H/2 with RowVector (iop[k]) and W/2 with ColVector (iop[k+3])
+        //        offset_to_center[k] = (static_cast<double>(W) / 2.0 * ps[1] * iop[k+3]) + 
+        //                              (static_cast<double>(H) / 2.0 * ps[0] * iop[k]);
+        //    }
+        //    
+        //    T += offset_to_center;
+        //    torch::Tensor pose = torch::eye(4, torch::kFloat32);
+        //    pose.index_put_({torch::indexing::Slice(0, 3), torch::indexing::Slice(0, 3)}, R);
+        //    pose.index_put_({torch::indexing::Slice(0, 3), 3}, T);
+        //    
+        //    // Convert to OpenGL camera coordinates
+        //    // This negates the local Y and Z axes of the camera.
+        //    pose.index_put_({torch::indexing::Slice(), torch::indexing::Slice(1,3)}, pose.index({torch::indexing::Slice(), torch::indexing::Slice(1,3)}) * -1.0f);
+        //    
+        //    // --- 5. Process Pixel Data for Image Tensor and Point Cloud ---
+        //    dcmcore::Buffer raw_pixel_buffer;
+        //    size_t pixel_data_len = 0;
+        //    thread_local_dataSet.GetBuffer(DicomTags_NG::PixelData, raw_pixel_buffer, pixel_data_len);
 
-            std::vector<unsigned char> image_bytes(W * H);
+        //    std::vector<unsigned char> image_bytes(W * H);
 
-            double hu_min = WC - WW / 2.0;
-            double hu_max = WC + WW / 2.0;
-            double window_range = WW > 0 ? WW : 1.0;
+        //    double hu_min = WC - WW / 2.0;
+        //    double hu_max = WC + WW / 2.0;
+        //    double window_range = WW > 0 ? WW : 1.0;
 
-            for (unsigned short r = 0; r < H; ++r)
-            {
-                for (unsigned short c = 0; c < W; ++c)
-                {
-                    size_t pixel_idx = r * W + c;
-                    int16_t raw_val_s16;
-                    memcpy(&raw_val_s16, raw_pixel_buffer.data() + pixel_idx * 2, sizeof(int16_t));
-                     if (thread_local_dataSet.endian() != dcmcore::PlatformEndian()) {
-                        raw_val_s16 = dcmcore::byteswap(raw_val_s16);
-                    }
-                    // double raw_value_double = static_cast<double>(raw_val_s16);
-                    double hu_value = static_cast<double>(raw_val_s16) * rescale_slope + rescale_intercept;
+        //    for (unsigned short r = 0; r < H; ++r)
+        //    {
+        //        for (unsigned short c = 0; c < W; ++c)
+        //        {
+        //            size_t pixel_idx = r * W + c;
+        //            int16_t raw_val_s16;
+        //            memcpy(&raw_val_s16, raw_pixel_buffer.data() + pixel_idx * 2, sizeof(int16_t));
+        //             if (thread_local_dataSet.endian() != dcmcore::PlatformEndian()) {
+        //                raw_val_s16 = dcmcore::byteswap(raw_val_s16);
+        //            }
+        //            // double raw_value_double = static_cast<double>(raw_val_s16);
+        //            double hu_value = static_cast<double>(raw_val_s16) * rescale_slope + rescale_intercept;
 
-                    // Create 8-bit image
-                    double norm_val = std::max(0.0, std::min(1.0, (hu_value - hu_min) / window_range));
-                    image_bytes[pixel_idx] = static_cast<unsigned char>(norm_val * 255.0);
+        //            // Create 8-bit image
+        //            double norm_val = std::max(0.0, std::min(1.0, (hu_value - hu_min) / window_range));
+        //            image_bytes[pixel_idx] = static_cast<unsigned char>(norm_val * 255.0);
 
-                    if ((r % POINT_CLOUD_DOWNSAMPLE == 0) && (c % POINT_CLOUD_DOWNSAMPLE == 0))
-                    {
-                        if (hu_value > HU_THRESHOLD)
-                        {
-                            if (dist(gen) > 1 - dropout_p)
-                                continue;
-                            std::array<double, 3> pt_3d;
-                            // P = IPP + (c * ColSpacing * ColVector) + (r * RowSpacing * RowVector)
-                            for(int k=0; k<3; ++k)
-                            {
-                            // correct pairing: r with RowVector (iop[k]) and c with ColVector (iop[k+3])
-                            pt_3d[k] = ipp[k] + (c * ps[1] * iop[k + 3]) + (r * ps[0] * iop[k]);
-                            }
+        //            //if ((r % POINT_CLOUD_DOWNSAMPLE == 0) && (c % POINT_CLOUD_DOWNSAMPLE == 0))
+        //            //{
+        //            //    if (hu_value > HU_THRESHOLD)
+        //            //    {
+        //            //        if (dist(gen) > 1 - dropout_p)
+        //            //            continue;
+        //            //        std::array<double, 3> pt_3d;
+        //            //        // P = IPP + (c * ColSpacing * ColVector) + (r * RowSpacing * RowVector)
+        //            //        for(int k=0; k<3; ++k)
+        //            //        {
+        //            //        // correct pairing: r with RowVector (iop[k]) and c with ColVector (iop[k+3])
+        //            //        pt_3d[k] = ipp[k] + (c * ps[1] * iop[k + 3]) + (r * ps[0] * iop[k]);
+        //            //        }
 
-                            local_points.push_back(pt_3d);
-                            unsigned char g_byte = static_cast<unsigned char>(norm_val * 255.0);
-                            local_colors.push_back({g_byte, g_byte, g_byte});
-                    }
-                }
-            }
-        }
+        //            //        local_points.push_back(pt_3d);
+        //            //        unsigned char g_byte = static_cast<unsigned char>(norm_val * 255.0);
+        //            //        local_colors.push_back({g_byte, g_byte, g_byte});
+        //            //}
+        //        }
+        //    }
+        //}
 
         // Convert image bytes to a torch::Tensor
-        cam.image_tensor = torch::from_blob(image_bytes.data(), {H, W}, torch::kU8).clone();
-        cam.image_tensor = cam.image_tensor.to(torch::kFloat32) / 255.0f; // Normalize
-        cam.image_tensor = cam.image_tensor.unsqueeze(-1).repeat({1, 1, 3}); // [H, W] -> [H, W, 1] -> [H, W, 3]
+        //cam.image_tensor = torch::from_blob(image_bytes.data(), {H, W}, torch::kU8).clone();
+        //cam.image_tensor = cam.image_tensor.to(torch::kFloat32) / 255.0f; // Normalize
+        //cam.image_tensor = cam.image_tensor.unsqueeze(-1).repeat({1, 1, 3}); // [H, W] -> [H, W, 1] -> [H, W, 3]
 
-        // Add the completed camera and its pose to the local vectors for this thread
-        local_cameras.push_back(std::move(cam));
-        local_poses.push_back({current_id, pose});
-        }
+        //// Add the completed camera and its pose to the local vectors for this thread
+        //local_cameras.push_back(std::move(cam));
+        //local_poses.push_back({current_id, pose});
+        //}
 
-        #pragma omp critical
-        {
-            cameras_accumulator.insert(cameras_accumulator.end(), std::make_move_iterator(local_cameras.begin()), std::make_move_iterator(local_cameras.end()));
-            poses_accumulator.insert(poses_accumulator.end(), std::make_move_iterator(local_poses.begin()), std::make_move_iterator(local_poses.end()));
-            all_points_3d.insert(all_points_3d.end(), local_points.begin(), local_points.end());
-            all_colors_8bit.insert(all_colors_8bit.end(), local_colors.begin(), local_colors.end());
-        }
+        //#pragma omp critical
+        //{
+        //    cameras_accumulator.insert(cameras_accumulator.end(), std::make_move_iterator(local_cameras.begin()), std::make_move_iterator(local_cameras.end()));
+        //    poses_accumulator.insert(poses_accumulator.end(), std::make_move_iterator(local_poses.begin()), std::make_move_iterator(local_poses.end()));
+        //    all_points_3d.insert(all_points_3d.end(), local_points.begin(), local_points.end());
+        //    all_colors_8bit.insert(all_colors_8bit.end(), local_colors.begin(), local_colors.end());
+        //}
     }
 
     // 1. Sort the cameras by their ID to ensure a consistent order (0, 1, 2, ...).

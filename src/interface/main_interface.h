@@ -1,5 +1,6 @@
 #pragma once
 
+#include "algorithms/marchingcubes.h"
 #include <memory>
 #include <optional>
 #define GLFW_INCLUDE_NONE
@@ -18,11 +19,13 @@ struct ChatMessage {
 };
 
 class Interface {
+    // Passed from main engine
     GLFWwindow* window;
-    unsigned int width, height;
+    MarchingCubesEngine& mc_engine;
+    Renderer& renderer;
 
-    // A pointer for now will be refactored later
-    Renderer* renderer;
+    // --------------------
+    unsigned int width, height;
 
     nfdopendialogu8args_t args;
 
@@ -39,17 +42,15 @@ class Interface {
 
 public:
 
-    Interface();
+    Interface(MarchingCubesEngine& mc, Renderer& renderer);
     ~Interface();
 
     const DicomReader& getDicomReader() const { return dcmReader; }
 
     void setupStyle();
     bool setupWindow();
-    bool initOpengl();
 
     void setupImgui();
-    void setupRenderer();
     void startMainLoop();
 
     void ShowViewerWindow(

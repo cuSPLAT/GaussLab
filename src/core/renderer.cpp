@@ -1,5 +1,6 @@
 #include "algorithms/marchingcubes.h"
 #include "core/camera.h"
+#include <GLFW/glfw3.h>
 #include <core/renderer.h>
 #include <core/shaders.h>
 
@@ -30,9 +31,6 @@ int Renderer::quadIndices[6] = {
 
 GlobalState globalState;
 
-Renderer::Renderer(int width, int height):
-    width(width), height(height) {}
-
 void Renderer::allocateGaussianQuad() {
     // the data of the rectangle that a Gaussian will occupy
     glGenBuffers(1, &quadVBO);
@@ -45,6 +43,18 @@ void Renderer::allocateGaussianQuad() {
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
+}
+
+bool Renderer::initOpenGL(GLFWwindow* window) {
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return false;
+    }
+    //TODO: Proper logging
+    std::cout << "OpenGL Initialized" << std::endl;
+    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
+    return true;
 }
 
 void Renderer::generateInitialBuffers() {

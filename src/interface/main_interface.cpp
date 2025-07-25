@@ -21,7 +21,6 @@
 #include <glm/fwd.hpp>
 #include <iostream>
 
-#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/gtc/type_ptr.hpp>
@@ -45,47 +44,11 @@ void UpdateTextures(const DicomReader::DicomData& dicom,
                     bool enableWindowing);
 
 
-Interface::Interface() = default;
+Interface::Interface(MarchingCubesEngine& mc, Renderer& renderer)
+    : mc_engine(mc), renderer(renderer) {}
 
 bool Interface::setupWindow() {
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-    glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-    glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-    glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-    glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
-
-    window = glfwCreateWindow(mode->width, mode->height, "GausStudio", nullptr, nullptr);
-    if (!window) {
-        glfwTerminate();
-        return false;
-    }
-    width = mode->width;
-    height = mode->height;
-
-    // For file dialogs
-    if(NFD_Init() != NFD_OKAY) {
-        std::cerr << "Could not initialize NFD for file dialogs" << std::endl;
-    }
-    args = {0};
-    NFD_GetNativeWindowFromGLFWWindow(window, &args.parentWindow);
-
-    glfwMakeContextCurrent(window);
-    glfwSwapInterval(1);
-
-    renderer = new Renderer(width, height);
-    // so we can access the renderer from the callbacks
-    glfwSetWindowUserPointer(window, Viewport::viewports);
-
-    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    //-------------------- Callbacks -----------------------
-    glfwSetCursorPosCallback(window, Callbacks::mouse_callback);
-    glfwSetScrollCallback(window, Callbacks::scroll_callback);
-    glfwSetKeyCallback(window, Callbacks::key_callback);
-    glfwSetMouseButtonCallback(window, Tools::dispatchToTool);
-
+    //TODO: Setup NFD
     return true;
 }
 
@@ -222,17 +185,6 @@ void Interface::setupStyle() {
       //&icons_config, icons_ranges);
 }
 
-bool Interface::initOpengl() {
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return false;
-    }
-    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
-    return true;
-}
-
 void Interface::setupImgui() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -267,10 +219,6 @@ std::optional<std::string> Interface::openFileDialog() {
     return std::nullopt;
 }
 
-void Interface::setupRenderer() {
-    renderer->generateInitialBuffers();
-}
-
 
 Interface::~Interface() {
     ImGui_ImplOpenGL3_Shutdown();
@@ -278,13 +226,9 @@ Interface::~Interface() {
     ImGui::DestroyContext();
 
     NFD_Quit();
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
-
-    delete renderer;
 }
 
+// TODO make an interface state to keep all this stuff in it
 void Interface::startMainLoop() {
     const int primtiveStepCount = 1000;
     
@@ -347,7 +291,7 @@ void Interface::startMainLoop() {
         ImGui::SetNextWindowDockID(dockspace_id, ImGuiCond_FirstUseEver);
 
         // ----------------------------- Drawing ------------------------
-        Viewport::drawViewports_ImGui(renderer);
+        Viewport::drawViewports_ImGui(&renderer);
         Viewport& selectedViewport = Viewport::viewports[::globalState.selectedViewport];
 
         // ------------------------------ DICOM Viewer -----------------
@@ -367,7 +311,7 @@ void Interface::startMainLoop() {
             ImGui::SeparatorText("Primitive Count");
             ImGui::PushItemWidth(-1.0f);
             ImGui::InputScalar(
-                "##PrimitiveCount", ImGuiDataType_U32, &renderer->verticesCount, &primtiveStepCount
+                "##PrimitiveCount", ImGuiDataType_U32, &renderer.verticesCount, &primtiveStepCount
             );
         }
         ImGui::End();
@@ -499,7 +443,7 @@ void Interface::startMainLoop() {
                                 .scales = torch::exp(model.scales),
                                 .centroid = {model.centroid_f[0], model.centroid_f[1], model.centroid_f[2]}
                             };
-                            renderer->constructSplatSceneFromGPU(reconstructedScene);
+                            renderer.constructSplatSceneFromGPU(reconstructedScene);
                         }
                     }
 
@@ -530,8 +474,8 @@ void Interface::startMainLoop() {
                     rendered = false;
                     const DicomReader::DicomData& data = dcmReader.loadedData;
 
-                    MarchingCubes::marched.clear();
-                    MarchingCubes::launchThreaded(
+                    mc_engine.marched.clear();
+                    mc_engine.launchThreaded(
                         data.buffer.get(),
                         data.width, data.length, data.height,
                         HU_threshold, centroid,
@@ -541,14 +485,14 @@ void Interface::startMainLoop() {
             }
 
             static int mc_duration = 0;
-            if (MarchingCubes::marched.test() && !rendered) {
+            if (mc_engine.marched.test() && !rendered) {
                 rendered = true;
                 // for debugging
                 auto now = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double, std::milli> duration = now - MarchingCubes::last_iter_timer;
+                std::chrono::duration<double, std::milli> duration = now - mc_engine.last_iter_timer;
                 mc_duration = duration.count();
 
-                renderer->constructMeshScene(MarchingCubes::OutputVertices);
+                renderer.constructMeshScene(mc_engine.OutputVertices);
 
                 for (int i = 0; i < Viewport::n_viewports; i++) {
                     if (Viewport::viewports[i].mesh)
@@ -563,14 +507,14 @@ void Interface::startMainLoop() {
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        renderer->render(window);
+        renderer.render(window);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
     dcmReader.cleanupThreads();
-    MarchingCubes::cleanUp();
+    mc_engine.cleanUp();
 }
 
 void Interface::createMenuBar() {
@@ -583,7 +527,7 @@ void Interface::createMenuBar() {
                 std::optional<std::string> path = openFileDialog();
                 if (path.has_value()) {
                     Scene* pcd = PLYLoader::loadPLy(std::move(path.value()));
-                    renderer->constructSplatScene(pcd);
+                    renderer.constructSplatScene(pcd);
                     delete pcd;
                 }
             }
@@ -602,9 +546,9 @@ void Interface::createMenuBar() {
             }
             if (ImGui::BeginMenu("Export")) {
                 if (ImGui::MenuItem("Wavefront (.obj)")) {
-                    if (MarchingCubes::marched.test()) {
+                    if (mc_engine.marched.test()) {
                         //TODO: choose export path
-                        DebugUtils::exportObj("output.obj", MarchingCubes::OutputVertices);
+                        DebugUtils::exportObj("output.obj", mc_engine.OutputVertices);
                     }
                 }
                 ImGui::EndMenu();

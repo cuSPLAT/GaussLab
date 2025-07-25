@@ -15,18 +15,19 @@ struct Vertex {
     float x, y, z;
 };
 
-namespace MarchingCubes {
+struct MarchingCubesEngine {
+    static int8_t triangle_table[256][16];
 
-    extern std::vector<std::thread> threads;
+    std::vector<std::thread> threads;
+    int num_threads = 0;
 
-    extern std::vector<Vertex> OutputVertices;
-    extern std::atomic_flag marched;
-    extern std::atomic<uint8_t> finished;
-    extern std::mutex vertex_mutex;
+    std::atomic_flag marched;
+    std::atomic<uint8_t> finished {0};
+    std::mutex vertex_mutex;
 
-    extern int num_threads;
+    decltype(std::chrono::high_resolution_clock::now()) last_iter_timer;
 
-    extern decltype(std::chrono::high_resolution_clock::now()) last_iter_timer;
+    std::vector<Vertex> OutputVertices;
 
     void marching_cubes(
         float* buffer, int width, int length, int height, float threshold,
