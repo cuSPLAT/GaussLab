@@ -1,4 +1,5 @@
 #include "meshslicing.h"
+#include "core/engine.h"
 
 #include <iostream>
 
@@ -24,8 +25,10 @@ namespace Tools {
 namespace MeshSlicing {
 
 void captureMousePos(GLFWwindow* window, int action) {
+    auto& appState = GaussLabEngine::getAppState();
+
     double xpos, ypos;
-    const Viewport& this_viewport = Viewport::viewports[::globalState.selectedViewport];
+    const Viewport& this_viewport = Viewport::viewports[appState.selectedViewport];
 
     glfwGetCursorPos(window, &xpos, &ypos);
     glm::vec3 worldSpaceMouse_tangent = glm::unProject(
@@ -62,6 +65,7 @@ void captureMousePos(GLFWwindow* window, int action) {
 }
 
 void createPlane(const glm::vec3& ray) {
+    auto& appState = GaussLabEngine::getAppState();
     // We do a cross product between the plane tangent and the into screen vector
     // to get the normal
     const glm::vec3 planeTangent = glm::normalize(world_mousePositions[1] - world_mousePositions[0]);
@@ -70,8 +74,8 @@ void createPlane(const glm::vec3& ray) {
     // solve the plane equation
     float d = -glm::dot(world_mousePositions[1], planeNormal);
 
-    const GLuint optional = glGetUniformLocation(::globalState.vertexProgram, "planeExists");
-    const GLuint normal = glGetUniformLocation(::globalState.vertexProgram, "planeData");
+    const GLuint optional = glGetUniformLocation(appState.vertexProgram, "planeExists");
+    const GLuint normal = glGetUniformLocation(appState.vertexProgram, "planeData");
     glUniform1i(optional, true);
     glUniform4fv(normal, 1, glm::value_ptr(glm::vec4 {planeNormal, d})); 
 

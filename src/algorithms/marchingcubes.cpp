@@ -43,7 +43,7 @@ static int8_t* get_triangulations(
     index |= (buffer[(x + step) + (y + step) * width + (z + step) * sliceArea] > threshold) << 6;
     index |= (buffer[x + (y + step) * width + (z + step) * sliceArea] > threshold) << 7;
 
-    return triangle_table[index];
+    return MarchingCubesEngine::triangle_table[index];
 }
 
 void MarchingCubesEngine::marching_cubes(

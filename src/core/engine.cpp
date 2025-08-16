@@ -5,6 +5,8 @@
 #include <interface/viewport.h>
 #include <tools/tools.h>
 
+GlobalState* GaussLabEngine::statePtr = nullptr;
+
 bool GaussLabEngine::initWindow() {
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
@@ -32,7 +34,7 @@ bool GaussLabEngine::initWindow() {
     glfwSwapInterval(1);
 
     // so we can access the renderer from the callbacks
-    glfwSetWindowUserPointer(m_window, Viewport::viewports);
+    //glfwSetWindowUserPointer(m_window, &appState);
 
     //glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     //-------------------- Callbacks -----------------------
@@ -44,20 +46,34 @@ bool GaussLabEngine::initWindow() {
     return true;
 }
 
-GaussLabEngine::GaussLabEngine() : interface(marchingCubesEngine, renderer) {
+GaussLabEngine::GaussLabEngine() : interface(marchingCubesEngine, renderer, appState) {
     if (!glfwInit())
         throw std::runtime_error("Failed to initialize GLFW");
 
     if (!initWindow())
         throw std::runtime_error("Window creation failed");
 
-    if (!renderer.initOpenGL(m_window))
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        glfwDestroyWindow(m_window);
+        glfwTerminate();
         throw std::runtime_error("Failed to initialize OpenGL");
+    }
+    std::cout << "OpenGL Initialized" << std::endl;
+    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
+
+    interface.setupGUI(m_window);
     renderer.generateInitialBuffers();
+    statePtr = &appState;
 }
 
-void run() {
+void GaussLabEngine::run() {
+    while (!glfwWindowShouldClose(m_window)) {
+        interface.drawInterface();
+        renderer.render(m_window);
 
+        glfwSwapBuffers(m_window);
+        glfwPollEvents();
+    }
 }
 
 GaussLabEngine::~GaussLabEngine() {

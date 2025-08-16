@@ -13,7 +13,7 @@ struct Viewport {
     static Viewport viewports[5];
     static unsigned int n_viewports;
     
-    static void drawViewports_ImGui(Renderer* renderer);
+    static void drawViewports_ImGui(Renderer* renderer, GlobalState& appState);
     static void newViewport(int width, int height);
 
     static void renderOnViewport(int i);

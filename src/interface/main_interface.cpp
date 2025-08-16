@@ -31,6 +31,8 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui.h>
 
+#include <core/engine.h>
+
 #include "request.hpp"
 #include "dicom_viewer.h"
 
@@ -44,8 +46,34 @@ void UpdateTextures(const DicomReader::DicomData& dicom,
                     bool enableWindowing);
 
 
-Interface::Interface(MarchingCubesEngine& mc, Renderer& renderer)
-    : mc_engine(mc), renderer(renderer) {}
+Interface::Interface(MarchingCubesEngine& mc, Renderer& renderer, GlobalState& appState)
+    : mc_engine(mc), renderer(renderer), appState(appState) {
+}
+
+void Interface::setupGUI(GLFWwindow* window) {
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    const char* font_path = "../assets/JetBrainsMono-Regular.ttf";
+    //float font_size = 18.0f;
+    io.Fonts->AddFontFromFileTTF(font_path, uiFontSize);
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 460");
+
+    this->setupStyle();
+
+    Viewport::newViewport(width, height);
+}
+
+Interface::GUIContext::GUIContext():
+    log2_threads(std::log2(std::thread::hardware_concurrency()) + 1) {
+    allowed_threads.reserve(log2_threads);
+    for (int i = 0; i < log2_threads; i++)
+    allowed_threads[i] = std::pow(2, i);
+}
 
 bool Interface::setupWindow() {
     //TODO: Setup NFD
@@ -185,23 +213,6 @@ void Interface::setupStyle() {
       //&icons_config, icons_ranges);
 }
 
-void Interface::setupImgui() {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
-    const char* font_path = "../assets/JetBrainsMono-Regular.ttf";
-    //float font_size = 18.0f;
-    io.Fonts->AddFontFromFileTTF(font_path, uiFontSize);
-
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 460");
-
-    this->setupStyle();
-    //ImGui::StyleColorsDark();
-}
-
 std::optional<std::string> Interface::openFileDialog() {
     nfdu8char_t* plyPath;
     
@@ -225,296 +236,260 @@ Interface::~Interface() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
+    dcmReader.cleanupThreads();
+    mc_engine.cleanUp();
+
     NFD_Quit();
 }
 
-// TODO make an interface state to keep all this stuff in it
-void Interface::startMainLoop() {
-    const int primtiveStepCount = 1000;
-    
-    // could be done with a range to be faster
-    const int log2_threads = std::log2(::globalState.available_threads) + 1;
-    std::vector<int> allowed_threads(log2_threads);
-    for (int i = 0; i < log2_threads; i++)
-        allowed_threads[i] = std::pow(2, i);
-    int selected_index = 0;
-    int n_threads = 1;
+void Interface::drawInterface() {
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
 
-    float dropout_p = 0.f;
+    //TODO: Move completely into a seperate class
+    if (dcmContext.dicom_just_loaded) {
+        const auto& dicom = dcmReader.loadedData;
+        windowCenter = dicom.windowCenter;
+        windowWidth = dicom.windowWidth;
+        dcmContext.axialSlice = dicom.height / 2;
+        dcmContext.coronalSlice = dicom.length / 2;
+        dcmContext.sagittalSlice = dicom.width / 2;
+        
+        if (dcmContext.axialTex) glDeleteTextures(1, &dcmContext.axialTex);
+        if (dcmContext.coronalTex) glDeleteTextures(1, &dcmContext.coronalTex);
+        if (dcmContext.sagittalTex) glDeleteTextures(1, &dcmContext.sagittalTex);
+        dcmContext.axialTex = dcmContext.coronalTex = dcmContext.sagittalTex = 0;
 
-    glm::vec3 centroid {0}; // a temporary
-
-    int axialSlice = 0, coronalSlice = 0, sagittalSlice = 0;
-    GLuint axialTex = 0, coronalTex = 0, sagittalTex = 0;
-    std::vector<unsigned char> axialBuf, coronalBuf, sagittalBuf;
-    float windowCenter = 0.0f, windowWidth = 0.0f;
-    bool dicom_just_loaded = false;
-    bool enableWindowing = true;
-    std::vector<ChatMessage> chatLog;
-
-    //NiftiReader::openNiftiImage();
-
-    // The main initial viewport
-    Viewport::newViewport(width, height);
-
-    while (!glfwWindowShouldClose(window)) {
-        // Start ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        if (dicom_just_loaded) {
-            const auto& dicom = dcmReader.loadedData;
-            windowCenter = dicom.windowCenter;
-            windowWidth = dicom.windowWidth;
-            axialSlice = dicom.height / 2;
-            coronalSlice = dicom.length / 2;
-            sagittalSlice = dicom.width / 2;
-            
-            if (axialTex) glDeleteTextures(1, &axialTex);
-            if (coronalTex) glDeleteTextures(1, &coronalTex);
-            if (sagittalTex) glDeleteTextures(1, &sagittalTex);
-            axialTex = coronalTex = sagittalTex = 0;
-
-            UpdateTextures(dicom, axialSlice, coronalSlice, sagittalSlice,
-                           axialTex, coronalTex, sagittalTex,
-                           axialBuf, coronalBuf, sagittalBuf,
-                           windowCenter, windowWidth, enableWindowing);
-            dicom_just_loaded = false;
-        }
-
-        //ImGui::ShowMetricsWindow();
-
-        createMenuBar();
-        createDockSpace();
-        ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
-        ImGui::SetNextWindowDockID(dockspace_id, ImGuiCond_FirstUseEver);
-
-        // ----------------------------- Drawing ------------------------
-        Viewport::drawViewports_ImGui(&renderer);
-        Viewport& selectedViewport = Viewport::viewports[::globalState.selectedViewport];
-
-        // ------------------------------ DICOM Viewer -----------------
-        ShowViewerWindow(
-            axialSlice, coronalSlice, sagittalSlice,
-            axialTex, coronalTex, sagittalTex,
-            axialBuf,
-            coronalBuf,
-            sagittalBuf,
-            windowCenter, windowWidth, enableWindowing);
-        ShowChatWindow(axialSlice, chatLog);
-        // only reload dicom tag entries if the file changes
-        ShowDicomViewer();
-        // ---------------------------------------------------------------
-
-        if (ImGui::Begin("Debug")) {
-            ImGui::SeparatorText("Primitive Count");
-            ImGui::PushItemWidth(-1.0f);
-            ImGui::InputScalar(
-                "##PrimitiveCount", ImGuiDataType_U32, &renderer.verticesCount, &primtiveStepCount
-            );
-        }
-        ImGui::End();
-
-        if(ImGui::Begin("Tabs")) {
-            if (ImGui::BeginTabBar("Main Tabs")) {
-                // Camera Point View Tab
-                if (ImGui::BeginTabItem("Camera Point View")) {
-                    ImGui::Text("Camera Position:");
-                    ImGui::PushItemWidth(-1.0f);
-                    ImGui::InputFloat3("##Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
-
-                    if (ImGui::Button("Reset")) {
-                        Viewport::lookAtScene_all(centroid);
-                    }
-
-                    // Point cloud or Gaussian splatting view mode selection
-                    ImGui::Dummy(ImVec2(0.f, 10.f));
-                    ImGui::SeparatorText("Viewport");
-                    if (ImGui::RadioButton("Scene", selectedViewport.view_camera->scene))
-                        selectedViewport.view_camera->scene = true;
-                    ImGui::SameLine();
-                    if (ImGui::RadioButton("Object", !selectedViewport.view_camera->scene))
-                        selectedViewport.view_camera->scene = false;
-                    // ---------------------------------------------------
-                    // Rendering mode selection
-                    ImGui::Dummy(ImVec2(0.f, 10.f));
-                    ImGui::Text("Render Mode: ");
-                    if (ImGui::BeginCombo("##RenderMode", "select")) {
-                        if (ImGui::Selectable("PCD"))
-                            //globalState.debugMode = GL_POINTS;
-                            globalState.renderingMode = GlobalState::RenderMode::PCD;
-                        if (ImGui::Selectable("Splats"))
-                            globalState.renderingMode = GlobalState::RenderMode::Splats;
-                            //globalState.debugMode = GL_TRIANGLES;
-                    
-                        ImGui::EndCombo();
-                    }
-                    // ---------------------------------------------------
-                    ImGui::Dummy(ImVec2(0.f, 10.f));
-                    ImGui::SeparatorText("Gaussian Splats");
-                    ImGui::Checkbox("Splat Sorting", &globalState.sortingEnabled);
-
-                    // -------------------- Toolbox ----------------------
-                    ImGui::Dummy(ImVec2(0.f, 10.f));
-                    ImGui::SeparatorText("Tool Box");
-                    Tools::drawToolBox_ImGui();
-                    
-                    // -------------------- 3DGS Construction ----------------------
-                    ImGui::Dummy(ImVec2(0.f, 10.f));
-                    ImGui::SeparatorText("3DGS Construction");
-
-                    float label_width = 120.0f;
-                    // --- Window Width ---
-                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
-                    ImGui::Text("Window Width");
-                    ImGui::SameLine(label_width);
-                    ImGui::InputFloat("##WW", &windowWidth, 0.0f, 0.0f, "%.1f"); // "##WW" makes the label invisible
-                    ImGui::PopItemWidth();
-
-                    // --- Window Center ---
-                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
-                    ImGui::Text("Window Center");
-                    ImGui::SameLine(label_width);
-                    ImGui::InputFloat("##WC", &windowCenter, 0.0f, 0.0f, "%.1f");
-                    ImGui::PopItemWidth();
-
-                    // --- HU Threshold ---
-                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
-                    ImGui::Text("HU Threshold");
-                    ImGui::SameLine(label_width);
-                    ImGui::InputInt("##HU", &huThreshold);
-                    ImGui::SliderFloat("Dropout", &dropout_p, 0.f, 1.f);
-                    ImGui::PopItemWidth();
-
-                    // --- Face Camera Slider ---
-                    const char* camera_options[] = { "+X", "+Y", "+Z" };
-                    ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
-                    ImGui::Text("Face Camera");
-                    ImGui::SameLine(label_width);
-                    ImGui::SliderInt("##FaceCamera", &faceCameraIndex, 0, 2, camera_options[faceCameraIndex]);
-                    ImGui::PopItemWidth();
-
-                    ImGui::Dummy(ImVec2(0.f, 5.f));
-                    float dcmDirButtonWidth = 80.0f;
-                    float spacing = ImGui::GetStyle().ItemSpacing.x;
-                    float fullWidth = ImGui::GetContentRegionAvail().x;
-                    if (ImGui::Button("dcmDir", ImVec2(dcmDirButtonWidth, 0)))
-                    {
-                        nfdu8char_t* path;
-                        nfdresult_t result = NFD_PickFolderU8(&path, nullptr);
-                    
-                        if (result == NFD_OKAY)
-                        {
-                            dicomDirectoryPath = std::string(path); 
-                            NFD_FreePathU8(path); // Free the path returned by NFD
-                            printf("Selected DICOM Directory: %s\n", dicomDirectoryPath.c_str());
-                        }
-                        else if (result == NFD_CANCEL)
-                        {
-                            printf("CANCELLED.\n");
-                        } 
-                        else
-                        {
-                            printf("Error picking directory: %s\n", NFD_GetError());
-                        }
-                    }
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Generate Splats", ImVec2(fullWidth - dcmDirButtonWidth - spacing, 0)))
-                    { // -1 width makes it span the full width
-                        if (dicomDirectoryPath.empty())
-                        {
-                            printf("Error: Please select a DICOM directory first.\n");
-                        }
-                        else
-                        {
-                            torch::Device device = torch::kCUDA;
-                            std::cout << device << "\n";
-                            InputData inputData = inputDataFromDicom(
-                                dicomDirectoryPath, windowWidth, windowCenter,
-                                huThreshold, 1, faceCameraIndex, dropout_p
-                            );
-                            Model model(inputData, device);
-                            GPUScene reconstructedScene = {
-                                .means = model.means,
-                                .colors = model.featuresDc,
-                                .opacities = 1 / (1 + torch::exp(-model.opacities)),
-                                .scales = torch::exp(model.scales),
-                                .centroid = {model.centroid_f[0], model.centroid_f[1], model.centroid_f[2]}
-                            };
-                            renderer.constructSplatSceneFromGPU(reconstructedScene);
-                        }
-                    }
-
-                    ImGui::Dummy(ImVec2(0.f, 10.f));
-                    ImGui::SeparatorText("Gaussian Scailing");
-                    ImGui::SliderFloat("##GaussianScale", &gaussianScale, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
-                    ImGui::PopItemWidth();
-
-                    ImGui::EndTabItem();
-                }
-            }
-            ImGui::EndTabBar();
-            
-        }
-        ImGui::End();
-
-        // --------------------- Marching Cubes -----------------
-        static bool rendered = false;
-        static int HU_threshold = 660;
-        if (ImGui::Begin("Marching Cubes")) {
-            if (ImGui::SliderInt("Threads", &selected_index, 0, log2_threads - 1, ""))
-                n_threads = allowed_threads[selected_index];
-            ImGui::SameLine();
-            ImGui::Text("%d", allowed_threads[selected_index]);
-            ImGui::InputScalar("HU value", ImGuiDataType_S32, &HU_threshold);
-            if(ImGui::Button("March")) {
-                if (dcmReader.loadedData.readable.test()) {
-                    rendered = false;
-                    const DicomReader::DicomData& data = dcmReader.loadedData;
-
-                    mc_engine.marched.clear();
-                    mc_engine.launchThreaded(
-                        data.buffer.get(),
-                        data.width, data.length, data.height,
-                        HU_threshold, centroid,
-                        1, n_threads
-                    );
-                }
-            }
-
-            static int mc_duration = 0;
-            if (mc_engine.marched.test() && !rendered) {
-                rendered = true;
-                // for debugging
-                auto now = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double, std::milli> duration = now - mc_engine.last_iter_timer;
-                mc_duration = duration.count();
-
-                renderer.constructMeshScene(mc_engine.OutputVertices);
-
-                for (int i = 0; i < Viewport::n_viewports; i++) {
-                    if (Viewport::viewports[i].mesh)
-                        Viewport::viewports[i].view_camera->lookAt(centroid);
-                }
-            }
-            ImGui::Text("Last run: %d ms", mc_duration);
-        }
-        // ------------------------------------------------------
-        ImGui::End();
-
-        // Render ImGui
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        renderer.render(window);
-
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+        UpdateTextures(dicom, dcmContext.axialSlice, dcmContext.coronalSlice, dcmContext.sagittalSlice,
+                       dcmContext.axialTex, dcmContext.coronalTex, dcmContext.sagittalTex,
+                       dcmContext.axialBuf, dcmContext.coronalBuf, dcmContext.sagittalBuf,
+                       windowCenter, windowWidth, dcmContext.enableWindowing);
+        dcmContext.dicom_just_loaded = false;
     }
 
-    dcmReader.cleanupThreads();
-    mc_engine.cleanUp();
+    createMenuBar();
+    createDockSpace();
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
+    ImGui::SetNextWindowDockID(dockspace_id, ImGuiCond_FirstUseEver);
+
+    // ----------------------------- Drawing ------------------------
+    Viewport::drawViewports_ImGui(&renderer, appState);
+    Viewport& selectedViewport = Viewport::viewports[appState.selectedViewport];
+
+    // ------------------------------ DICOM Viewer -----------------
+    ShowViewerWindow(
+        dcmContext.axialSlice, dcmContext.coronalSlice, dcmContext.sagittalSlice,
+        dcmContext.axialTex, dcmContext.coronalTex, dcmContext.sagittalTex,
+        dcmContext.axialBuf,
+        dcmContext.coronalBuf,
+        dcmContext.sagittalBuf,
+        windowCenter, windowWidth, dcmContext.enableWindowing);
+    ShowChatWindow(dcmContext.axialSlice, dcmContext.chatLog);
+    // only reload dicom tag entries if the file changes
+    ShowDicomViewer();
+    // ---------------------------------------------------------------
+
+    if (ImGui::Begin("Debug")) {
+        ImGui::SeparatorText("Primitive Count");
+        ImGui::PushItemWidth(-1.0f);
+        ImGui::InputScalar(
+            "##PrimitiveCount", ImGuiDataType_U32, &renderer.verticesCount, &guiCtxt.primtiveStepCount
+        );
+    }
+    ImGui::End();
+
+    if(ImGui::Begin("Tabs")) {
+        if (ImGui::BeginTabBar("Main Tabs")) {
+            // Camera Point View Tab
+            if (ImGui::BeginTabItem("Camera Point View")) {
+                ImGui::Text("Camera Position:");
+                ImGui::PushItemWidth(-1.0f);
+                ImGui::InputFloat3("##Position", glm::value_ptr(selectedViewport.view_camera->cameraPos));
+
+                if (ImGui::Button("Reset")) {
+                    Viewport::lookAtScene_all(guiCtxt.centroid);
+                }
+
+                // Point cloud or Gaussian splatting view mode selection
+                ImGui::Dummy(ImVec2(0.f, 10.f));
+                ImGui::SeparatorText("Viewport");
+                if (ImGui::RadioButton("Scene", selectedViewport.view_camera->scene))
+                    selectedViewport.view_camera->scene = true;
+                ImGui::SameLine();
+                if (ImGui::RadioButton("Object", !selectedViewport.view_camera->scene))
+                    selectedViewport.view_camera->scene = false;
+                // ---------------------------------------------------
+                // Rendering mode selection
+                ImGui::Dummy(ImVec2(0.f, 10.f));
+                ImGui::Text("Render Mode: ");
+                if (ImGui::BeginCombo("##RenderMode", "select")) {
+                    if (ImGui::Selectable("PCD"))
+                        //globalState.debugMode = GL_POINTS;
+                        appState.renderingMode = GlobalState::RenderMode::PCD;
+                    if (ImGui::Selectable("Splats"))
+                        appState.renderingMode = GlobalState::RenderMode::Splats;
+                        //globalState.debugMode = GL_TRIANGLES;
+                
+                    ImGui::EndCombo();
+                }
+                // ---------------------------------------------------
+                ImGui::Dummy(ImVec2(0.f, 10.f));
+                ImGui::SeparatorText("Gaussian Splats");
+                ImGui::Checkbox("Splat Sorting", &appState.sortingEnabled);
+
+                // -------------------- Toolbox ----------------------
+                ImGui::Dummy(ImVec2(0.f, 10.f));
+                ImGui::SeparatorText("Tool Box");
+                Tools::drawToolBox_ImGui();
+                
+                // -------------------- 3DGS Construction ----------------------
+                ImGui::Dummy(ImVec2(0.f, 10.f));
+                ImGui::SeparatorText("3DGS Construction");
+
+                float label_width = 120.0f;
+                // --- Window Width ---
+                ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                ImGui::Text("Window Width");
+                ImGui::SameLine(label_width);
+                ImGui::InputFloat("##WW", &windowWidth, 0.0f, 0.0f, "%.1f"); // "##WW" makes the label invisible
+                ImGui::PopItemWidth();
+
+                // --- Window Center ---
+                ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                ImGui::Text("Window Center");
+                ImGui::SameLine(label_width);
+                ImGui::InputFloat("##WC", &windowCenter, 0.0f, 0.0f, "%.1f");
+                ImGui::PopItemWidth();
+
+                // --- HU Threshold ---
+                ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                ImGui::Text("HU Threshold");
+                ImGui::SameLine(label_width);
+                ImGui::InputInt("##HU", &huThreshold);
+                ImGui::SliderFloat("Dropout", &guiCtxt.dropout_p, 0.f, 1.f);
+                ImGui::PopItemWidth();
+
+                // --- Face Camera Slider ---
+                const char* camera_options[] = { "+X", "+Y", "+Z" };
+                ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - label_width);
+                ImGui::Text("Face Camera");
+                ImGui::SameLine(label_width);
+                ImGui::SliderInt("##FaceCamera", &faceCameraIndex, 0, 2, camera_options[faceCameraIndex]);
+                ImGui::PopItemWidth();
+
+                ImGui::Dummy(ImVec2(0.f, 5.f));
+                float dcmDirButtonWidth = 80.0f;
+                float spacing = ImGui::GetStyle().ItemSpacing.x;
+                float fullWidth = ImGui::GetContentRegionAvail().x;
+                if (ImGui::Button("dcmDir", ImVec2(dcmDirButtonWidth, 0)))
+                {
+                    nfdu8char_t* path;
+                    nfdresult_t result = NFD_PickFolderU8(&path, nullptr);
+                
+                    if (result == NFD_OKAY)
+                    {
+                        dicomDirectoryPath = std::string(path); 
+                        NFD_FreePathU8(path); // Free the path returned by NFD
+                        printf("Selected DICOM Directory: %s\n", dicomDirectoryPath.c_str());
+                    }
+                    else if (result == NFD_CANCEL)
+                    {
+                        printf("CANCELLED.\n");
+                    } 
+                    else
+                    {
+                        printf("Error picking directory: %s\n", NFD_GetError());
+                    }
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Generate Splats", ImVec2(fullWidth - dcmDirButtonWidth - spacing, 0)))
+                { // -1 width makes it span the full width
+                    if (dicomDirectoryPath.empty())
+                    {
+                        printf("Error: Please select a DICOM directory first.\n");
+                    }
+                    else
+                    {
+                        torch::Device device = torch::kCUDA;
+                        std::cout << device << "\n";
+                        InputData inputData = inputDataFromDicom(
+                            dicomDirectoryPath, windowWidth, windowCenter,
+                            huThreshold, 1, faceCameraIndex, guiCtxt.dropout_p
+                        );
+                        Model model(inputData, device);
+                        GPUScene reconstructedScene = {
+                            .means = model.means,
+                            .colors = model.featuresDc,
+                            .opacities = 1 / (1 + torch::exp(-model.opacities)),
+                            .scales = torch::exp(model.scales),
+                            .centroid = {model.centroid_f[0], model.centroid_f[1], model.centroid_f[2]}
+                        };
+                        renderer.constructSplatSceneFromGPU(reconstructedScene);
+                    }
+                }
+
+                ImGui::Dummy(ImVec2(0.f, 10.f));
+                ImGui::SeparatorText("Gaussian Scailing");
+                ImGui::SliderFloat("##GaussianScale", &gaussianScale, 0.0001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic);
+                ImGui::PopItemWidth();
+
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
+        
+    }
+    ImGui::End();
+
+    // --------------------- Marching Cubes -----------------
+    static bool rendered = false;
+    static int HU_threshold = 660;
+    if (ImGui::Begin("Marching Cubes")) {
+        if (ImGui::SliderInt("Threads", &guiCtxt.selected_index, 0, guiCtxt.log2_threads - 1, ""))
+            guiCtxt.n_threads = guiCtxt.allowed_threads[guiCtxt.selected_index];
+        ImGui::SameLine();
+        ImGui::Text("%d", guiCtxt.allowed_threads[guiCtxt.selected_index]);
+        ImGui::InputScalar("HU value", ImGuiDataType_S32, &HU_threshold);
+        if(ImGui::Button("March")) {
+            if (dcmReader.loadedData.readable.test()) {
+                rendered = false;
+                const DicomReader::DicomData& data = dcmReader.loadedData;
+
+                mc_engine.marched.clear();
+                mc_engine.launchThreaded(
+                    data.buffer.get(),
+                    data.width, data.length, data.height,
+                    HU_threshold, guiCtxt.centroid,
+                    1, guiCtxt.n_threads
+                );
+            }
+        }
+
+        static int mc_duration = 0;
+        if (mc_engine.marched.test() && !rendered) {
+            rendered = true;
+            // for debugging
+            auto now = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> duration = now - mc_engine.last_iter_timer;
+            mc_duration = duration.count();
+
+            renderer.constructMeshScene(mc_engine.OutputVertices);
+
+            for (int i = 0; i < Viewport::n_viewports; i++) {
+                if (Viewport::viewports[i].mesh)
+                    Viewport::viewports[i].view_camera->lookAt(guiCtxt.centroid);
+            }
+        }
+        ImGui::Text("Last run: %d ms", mc_duration);
+    }
+    // ------------------------------------------------------
+    ImGui::End();
+
+    // Render ImGui
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Interface::createMenuBar() {
@@ -809,10 +784,6 @@ void Interface::ShowViewerWindow(
 
     ImGui::End();
 }
-
-
-
-
 
 // ImGui chat interface
 // Include ImGuiFileDialog

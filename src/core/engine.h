@@ -1,9 +1,9 @@
 #pragma once
 
-#include <GLFW/glfw3.h>
 #include <algorithms/marchingcubes.h>
 #include <core/renderer.h>
 #include <interface/main_interface.h>
+#include <stdexcept>
 
 
 // A global state for the renderer, this will be used to pass data between classes
@@ -31,7 +31,10 @@ struct GlobalState {
 };
 
 class GaussLabEngine {
-    Renderer renderer;
+    static GlobalState* statePtr;
+    GlobalState appState;
+
+    Renderer renderer { appState };
     Interface interface;
     MarchingCubesEngine marchingCubesEngine;
 
@@ -42,6 +45,13 @@ public:
     ~GaussLabEngine();
 
     void run();
+
+    static GlobalState& getAppState() {
+        if (!statePtr)
+            throw std::runtime_error("App not yet initialized, this should not be accessed");
+
+        return *statePtr;
+    }
 
 private:
     bool initWindow();

@@ -9,8 +9,6 @@
 
 #include <glm/glm.hpp>
 
-extern int8_t triangle_table[256][16];
-
 struct Vertex {
     float x, y, z;
 };

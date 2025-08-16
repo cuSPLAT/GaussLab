@@ -6,10 +6,9 @@
 #include <atomic>
 #include <torch/serialize/input-archive.h>
 #include <vector>
-#define GLFW_INCLUDE_NONE
 
-#include <GLFW/glfw3.h>
 #include <glad/glad.h>
+#include <GLFW/glfw3.h>
 
 #include <cuda_gl_interop.h>
 
@@ -35,9 +34,12 @@ struct GPUScene {
     glm::vec3 centroid;
 };
 
+struct GlobalState;
+
 class Renderer {
     static float quadVertices[8];
     static int quadIndices[6];
+    GlobalState& appState;
 
     GLuint VBO, VAO;
     GLuint quadVBO, quadEBO;
@@ -64,10 +66,9 @@ public:
     unsigned int gaussiansCount = 0;
 
 public:
-    Renderer() = default;
+    Renderer(GlobalState& appState);
     ~Renderer();
 
-    bool initOpenGL(GLFWwindow* window);
     void generateInitialBuffers();
     // I will do a getter later
     GLuint shaderProgram, veryRealComputeProgram;

@@ -68,9 +68,6 @@ void Camera::lookAt(const glm::vec3& centroid) {
 }
 
 void Camera::calculateDirection(GLFWwindow* window, double xpos, double ypos) {
-    if (!(::globalState.in_view_mode))
-        return;
-
     mouseData.xoffset = xpos - mouseData.lastX;
     mouseData.yoffset = mouseData.lastY - ypos;
     mouseData.lastX = xpos;

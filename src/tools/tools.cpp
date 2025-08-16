@@ -1,6 +1,7 @@
 #include "tools.h"
 #include <imgui.h>
 #include <iostream>
+#include "core/engine.h"
 #include "meshslicing.h"
 #include <GLFW/glfw3.h>
 
@@ -12,7 +13,9 @@ namespace Tools {
 AvailableTools activeTool = AvailableTools::None;
 
 void dispatchToTool(GLFWwindow* window, int button, int action, int mod) {
-    if (!(::globalState.windowHovered))
+    auto& appState = GaussLabEngine::getAppState();
+
+    if (!(appState.windowHovered))
         return;
 
     if (button != GLFW_MOUSE_BUTTON_LEFT)
@@ -29,14 +32,16 @@ void dispatchToTool(GLFWwindow* window, int button, int action, int mod) {
 }
 
 void drawToolBox_ImGui() {
+    auto& appState = GaussLabEngine::getAppState();
+
     if (ImGui::Button("Slicing")) {
         activeTool = AvailableTools::Slicing;
-        ::globalState.in_view_mode = false;
+        appState.in_view_mode = false;
     }
     ImGui::SameLine();
     if (ImGui::Button("Clear")) {
         const GLuint optional = glGetUniformLocation(
-            ::globalState.vertexProgram, "planeExists");
+            appState.vertexProgram, "planeExists");
         glUniform1i(optional, false);
     }
 }

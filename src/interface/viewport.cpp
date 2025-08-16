@@ -1,4 +1,6 @@
 #include "viewport.h"
+
+#include <core/engine.h>
 #include <core/renderer.h>
 
 #include <glm/detail/qualifier.hpp>
@@ -17,7 +19,7 @@ const char viewport_ids[5][11] = {
 unsigned int Viewport::n_viewports = 0;
 Viewport Viewport::viewports[5] = {};
 
-Viewport::Viewport(int width, int height){
+Viewport::Viewport(int width, int height) {
     viewport_id = viewport_ids[Viewport::n_viewports];
     view_camera = std::make_unique<Camera>(width, height);
     mesh = true;
@@ -89,7 +91,7 @@ void Viewport::lookAtScene_all(const glm::vec3& centroid) {
 }
 
 // TODO: remove the renderer pointer. it is literally useless here
-void Viewport::drawViewports_ImGui(Renderer* renderer) {
+void Viewport::drawViewports_ImGui(Renderer* renderer, GlobalState& appState) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     for (int i = 0; i < Viewport::n_viewports; i++) {
         // TODO: ONly allow a limited number of viewports
@@ -97,11 +99,11 @@ void Viewport::drawViewports_ImGui(Renderer* renderer) {
             if(ImGui::BeginChild("Render")) {
                 // slicing problem is here
                 if (ImGui::IsWindowHovered())
-                    ::globalState.windowHovered = true;
-                //else ::globalState.windowHovered = false;
+                    appState.windowHovered = true;
+                //else appState.windowHovered = false;
 
-                if (ImGui::IsWindowFocused() && ::globalState.selectedViewport != i)
-                    ::globalState.selectedViewport = i;
+                if (ImGui::IsWindowFocused() && appState.selectedViewport != i)
+                    appState.selectedViewport = i;
 
                 ImVec2 size = ImGui::GetWindowSize();
                 ImVec2 pos  = ImGui::GetWindowPos();

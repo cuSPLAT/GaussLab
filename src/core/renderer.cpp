@@ -1,5 +1,6 @@
 #include "algorithms/marchingcubes.h"
 #include "core/camera.h"
+#include "core/engine.h"
 #include <GLFW/glfw3.h>
 #include <core/renderer.h>
 #include <core/shaders.h>
@@ -29,7 +30,7 @@ int Renderer::quadIndices[6] = {
     0, 2, 3
 };
 
-GlobalState globalState;
+Renderer::Renderer(GlobalState& appState): appState(appState) {}
 
 void Renderer::allocateGaussianQuad() {
     // the data of the rectangle that a Gaussian will occupy
@@ -43,18 +44,6 @@ void Renderer::allocateGaussianQuad() {
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIndices), quadIndices, GL_STATIC_DRAW);
-}
-
-bool Renderer::initOpenGL(GLFWwindow* window) {
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return false;
-    }
-    //TODO: Proper logging
-    std::cout << "OpenGL Initialized" << std::endl;
-    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
-    return true;
 }
 
 void Renderer::generateInitialBuffers() {
@@ -115,8 +104,8 @@ void Renderer::generateInitialBuffers() {
     glAttachShader(gaussRenProgram, GaussianFragmentShader);
     glLinkProgram(gaussRenProgram);
 
-    ::globalState.vertexProgram = shaderProgram;
-    ::globalState.gaussianProgram = gaussRenProgram;
+    appState.vertexProgram = shaderProgram;
+    appState.gaussianProgram = gaussRenProgram;
 
     glDeleteShader(PCDVertexShader);
     glDeleteShader(PCDFragmentShader);
@@ -312,7 +301,7 @@ void Renderer::processGaussianSplats(int i) {
 
     glDisable(GL_RASTERIZER_DISCARD);
 
-    if (::globalState.sortingEnabled) {
+    if (appState.sortingEnabled) {
         //TIME_SANDWICH_START(CUDA_INTEROP)
         cudaGraphicsMapResources(4, cu_buffers);
 
@@ -336,7 +325,7 @@ void Renderer::processGaussianSplats(int i) {
 }
 
 void Renderer::render(GLFWwindow* window) {
-    Viewport::viewports[::globalState.selectedViewport].view_camera->handleInput(window);
+    Viewport::viewports[appState.selectedViewport].view_camera->handleInput(window);
 
     //TODO: use UBOs instead of normal uniforms
     for (int i = 0; i < Viewport::n_viewports; i++) {
@@ -348,9 +337,9 @@ void Renderer::render(GLFWwindow* window) {
             glUseProgram(shaderProgram);
             Viewport::viewports[i].view_camera->registerModelView(shaderProgram);
             //TODO: pls dont forget -- i forgot
-            glDrawArrays(::globalState.debugMode, 0, verticesCount);
+            glDrawArrays(appState.debugMode, 0, verticesCount);
         } else if (gaussianSceneCreated) {
-            if (::globalState.renderingMode == GlobalState::RenderMode::PCD) {
+            if (appState.renderingMode == GlobalState::RenderMode::PCD) {
                 glUseProgram(shaderProgram);
                 glDrawArrays(GL_POINTS, 0, gaussiansCount);
                 continue;
