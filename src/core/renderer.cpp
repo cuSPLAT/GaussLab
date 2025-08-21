@@ -80,11 +80,45 @@ void Renderer::generateInitialBuffers() {
     glCompileShader(GaussianFragmentShader);
 
     GLint success;
+    char infoLog[1024];
+    
+    // Check PCDVertexShader compilation
     glGetShaderiv(PCDVertexShader, GL_COMPILE_STATUS, &success);
     if (!success) {
-        char infoLog[1024];
         glGetShaderInfoLog(PCDVertexShader, sizeof(infoLog), nullptr, infoLog);
-        std::cerr << "ERROR::SHADER_COMPILATION_ERROR of type: " 
+        std::cerr << "ERROR::SHADER_COMPILATION_ERROR PCDVertexShader: " 
+                  << "\n" << infoLog << "\n";
+    }
+    
+    // Check PCDFragmentShader compilation
+    glGetShaderiv(PCDFragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(PCDFragmentShader, sizeof(infoLog), nullptr, infoLog);
+        std::cerr << "ERROR::SHADER_COMPILATION_ERROR PCDFragmentShader: " 
+                  << "\n" << infoLog << "\n";
+    }
+    
+    // Check veryRealComputeShader compilation
+    glGetShaderiv(veryRealComputeShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(veryRealComputeShader, sizeof(infoLog), nullptr, infoLog);
+        std::cerr << "ERROR::SHADER_COMPILATION_ERROR veryRealComputeShader: " 
+                  << "\n" << infoLog << "\n";
+    }
+    
+    // Check GaussianVertexShader compilation
+    glGetShaderiv(GaussianVertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(GaussianVertexShader, sizeof(infoLog), nullptr, infoLog);
+        std::cerr << "ERROR::SHADER_COMPILATION_ERROR GaussianVertexShader: " 
+                  << "\n" << infoLog << "\n";
+    }
+    
+    // Check GaussianFragmentShader compilation
+    glGetShaderiv(GaussianFragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(GaussianFragmentShader, sizeof(infoLog), nullptr, infoLog);
+        std::cerr << "ERROR::SHADER_COMPILATION_ERROR GaussianFragmentShader: " 
                   << "\n" << infoLog << "\n";
     }
 
@@ -111,6 +145,7 @@ void Renderer::generateInitialBuffers() {
     glDeleteShader(PCDFragmentShader);
     glDeleteShader(veryRealComputeShader);
     glDeleteShader(GaussianVertexShader);
+    glDeleteShader(GaussianFragmentShader);
 
 }
 
