@@ -36,19 +36,19 @@ inline int16_t byteswap<std::int16_t>(std::int16_t value)
 template <>
 inline uint32_t byteswap<uint32_t>(uint32_t value)
 {
-  return std::uint32_t(byteswap<uint16_t>(value) << 16) | byteswap<uint16_t>(value >> 16);
+  return std::uint32_t(byteswap<uint16_t>(value & 0xFFFF) << 16) | byteswap<uint16_t>(value >> 16);
 }
 
 template <>
 inline int32_t byteswap<int32_t>(int32_t value)
 {
-  return std::int32_t(byteswap<int16_t>(value) << 16) | byteswap<int16_t>(value >> 16);
+  return std::int32_t(byteswap<int16_t>(value & 0xFFFF) << 16) | byteswap<int16_t>(value >> 16);
 }
 
 template <>
 inline uint64_t byteswap<uint64_t>(uint64_t value)
 {
-  return std::uint64_t((unsigned long long)byteswap<uint32_t>(value) << 32LL) | byteswap<uint32_t>(value >> 32LL);
+  return std::uint64_t((unsigned long long)byteswap<uint32_t>(value & 0xFFFFFFFFULL) << 32LL) | byteswap<uint32_t>(value >> 32LL);
 }
 
 template <typename T>

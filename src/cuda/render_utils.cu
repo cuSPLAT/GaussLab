@@ -24,7 +24,7 @@ void RenderUtils::sort_gaussians_gpu(
         cub::DeviceRadixSort::SortPairs(
             nullptr, _this::temp_storage_size, keys_in, keys_out, val_in, val_out, num
         );
-        cudaMalloc(&_this::temp_storage, _this::temp_storage_size);
+        CHECK_CUDA(cudaMalloc(&_this::temp_storage, _this::temp_storage_size), true)
         newScene = false;
 
         std::cout << "New scene, needed storage of: " << _this::temp_storage_size << " bytes"
@@ -45,6 +45,8 @@ void RenderUtils::sort_gaussians_gpu(
 void RenderUtils::cleanUp() {
     using _this = RenderUtils;
 
-    cudaFree(_this::temp_storage);
-    _this::temp_storage = nullptr;
+    if (_this::temp_storage != nullptr) {
+        cudaFree(_this::temp_storage);
+        _this::temp_storage = nullptr;
+    }
 }
