@@ -10,6 +10,12 @@
 # About
 GaussLab is a fully-featured studio for reconstructing CT-scans using classical approaches like Marching Cubes and SOTA approaches, Gaussian Splatting. GaussLab is fully GPU-accelerated
 
+# Key-features
+1. 3D reconstruction using Marching Cubes and Gaussian Splatting
+2. Multi-viewport viewing
+3. AI Assistant for Diagnosis
+4. Object slicing
+
 # Building
 GaussLab uses the CMake build system, install the following prerequisites first:
 - glm
